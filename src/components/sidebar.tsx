@@ -1,0 +1,98 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import {
+  LayoutGrid,
+  Tag,
+  List,
+  Kanban,
+  BarChart3,
+  Settings,
+  Sparkles,
+  Plus,
+  ChevronsUpDown,
+  type LucideIcon,
+} from "lucide-react";
+import {
+  NAV,
+  APP_NAME,
+  TENANT_NAME,
+  WORKSPACE_NAME,
+  WORKSPACE_SUB,
+} from "@/lib/nav";
+
+const ICONS: Record<string, LucideIcon> = {
+  LayoutGrid,
+  Tag,
+  List,
+  Kanban,
+  BarChart3,
+  Settings,
+};
+
+export function Sidebar({ reviewCount = 0 }: { reviewCount?: number }) {
+  const pathname = usePathname();
+  return (
+    <nav className="sticky top-0 flex h-screen w-[240px] shrink-0 flex-col gap-1 border-r border-border bg-surface p-3">
+      {/* logo */}
+      <div className="flex items-center gap-2.5 px-2 pt-1">
+        <div
+          className="flex h-[30px] w-[30px] items-center justify-center rounded-lg text-white"
+          style={{ background: "linear-gradient(135deg,#4F46E5,#7C3AED)" }}
+        >
+          <Sparkles size={15} />
+        </div>
+        <span className="text-[18px] font-extrabold tracking-tight">{APP_NAME}</span>
+      </div>
+      <div className="pl-12 pb-3 text-[12px] text-muted">{TENANT_NAME}</div>
+
+      {/* app switcher (static in POC) */}
+      <button className="mx-1 mb-3.5 flex items-center gap-2.5 rounded-lg border border-border bg-surface px-3 py-2.5 text-left shadow-[var(--shadow)] hover:bg-hover">
+        <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: "var(--indigo)" }} />
+        <span className="flex-1">
+          <span className="block text-sm font-semibold leading-tight">{WORKSPACE_NAME}</span>
+          <span className="text-[11.5px] text-muted">{WORKSPACE_SUB}</span>
+        </span>
+        <ChevronsUpDown size={14} className="text-muted" />
+      </button>
+
+      {/* nav */}
+      <div className="flex flex-col gap-0.5">
+        {NAV.map((item) => {
+          const Icon = ICONS[item.icon];
+          const active = pathname === item.href || pathname.startsWith(item.href + "/");
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`flex items-center gap-3 rounded-lg px-3 py-2 text-[13.5px] font-medium transition-colors ${
+                active
+                  ? "bg-[var(--indigo-soft)] font-semibold text-indigo"
+                  : "text-muted hover:bg-hover hover:text-fg"
+              }`}
+            >
+              {Icon ? <Icon size={16} /> : null}
+              <span>{item.label}</span>
+              {item.href === "/register" && reviewCount > 0 && (
+                <span className="ml-auto rounded-full bg-indigo px-1.5 py-px text-[10.5px] font-bold text-white">
+                  {reviewCount}
+                </span>
+              )}
+            </Link>
+          );
+        })}
+      </div>
+
+      {/* bottom */}
+      <div className="mt-auto px-1">
+        <button className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-indigo text-[13.5px] font-semibold text-white transition hover:brightness-110">
+          <Plus size={16} /> Ingest Feedback
+        </button>
+        <div className="pt-2.5 text-center text-[10.5px] text-muted">
+          POC build · M0 skeleton
+        </div>
+      </div>
+    </nav>
+  );
+}
