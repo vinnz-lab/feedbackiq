@@ -17,7 +17,8 @@ async function init(): Promise<DB> {
       import("drizzle-orm/postgres-js"),
       import("postgres"),
     ]);
-    const client = postgres.default(process.env.DATABASE_URL, { prepare: false });
+    // Supabase requires SSL; transaction pooler (pgbouncer) needs prepare:false.
+    const client = postgres.default(process.env.DATABASE_URL, { prepare: false, ssl: "require" });
     return drizzle(client, { schema }) as unknown as DB;
   }
   const [{ drizzle }, { PGlite }] = await Promise.all([
