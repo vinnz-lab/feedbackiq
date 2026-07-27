@@ -86,9 +86,12 @@ export function Sidebar({ reviewCount = 0 }: { reviewCount?: number }) {
 
       {/* bottom */}
       <div className="mt-auto px-1">
-        <button className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-indigo text-[13.5px] font-semibold text-white transition hover:brightness-110">
+        <Link
+          href="/ingest"
+          className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-indigo text-[13.5px] font-semibold text-white transition hover:brightness-110"
+        >
           <Plus size={16} /> Ingest Feedback
-        </button>
+        </Link>
         <div className="pt-2.5 text-center text-[10.5px] text-muted">
           POC build · M0 skeleton
         </div>

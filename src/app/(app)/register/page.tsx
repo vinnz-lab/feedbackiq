@@ -189,25 +189,35 @@ async function ReviewTab() {
             <span className="inline-flex items-center rounded-[var(--radius-pill)] bg-slate-soft px-2 py-0.5 text-[11.5px] text-muted" style={{ background: "var(--slate-soft)" }}>
               {KIND_ICON[r.sourceKind ?? ""] ?? "•"} {r.sourceName ?? "source"}
             </span>
-            <Chip
-              bg={r.reason === "low confidence" ? "var(--amber-soft)" : "var(--indigo-soft)"}
-              fg={r.reason === "low confidence" ? "var(--amber)" : "var(--indigo)"}
-            >
-              {r.reason === "low confidence" ? "◐ Low confidence" : "⚡ Arrived unattended"}
-            </Chip>
+            {(() => {
+              const map: Record<string, { bg: string; fg: string; label: string }> = {
+                "low confidence": { bg: "var(--amber-soft)", fg: "var(--amber)", label: "◐ Low confidence" },
+                "awaiting AI": { bg: "var(--slate-soft)", fg: "var(--slate)", label: "✨ Awaiting AI" },
+              };
+              const c = map[r.reason ?? ""] ?? { bg: "var(--indigo-soft)", fg: "var(--indigo)", label: "⚡ Arrived unattended" };
+              return <Chip bg={c.bg} fg={c.fg}>{c.label}</Chip>;
+            })()}
             <span className="ml-auto text-[11.5px] text-muted">Confidence: {r.confidence ?? "—"}</span>
           </div>
           <div className="text-[14px] font-medium">“{r.quote}”</div>
           <div className="mt-2.5 flex flex-wrap items-center gap-2">
-            <span className="text-[12px] text-muted">✨ AI suggests:</span>
-            {r.type && <TypePill type={r.type as FeedbackType} />}
-            {r.sentiment && <SentimentPill sentiment={r.sentiment as Sentiment} />}
-            {r.themeTitle && (
-              <span className="rounded-[var(--radius-pill)] px-2 py-0.5 text-[11.5px] font-semibold" style={{ background: "var(--indigo-soft)", color: "var(--indigo)" }}>
-                {r.themeTitle}
-              </span>
+            {r.type || r.sentiment ? (
+              <>
+                <span className="text-[12px] text-muted">✨ AI suggests:</span>
+                {r.type && <TypePill type={r.type as FeedbackType} />}
+                {r.sentiment && <SentimentPill sentiment={r.sentiment as Sentiment} />}
+                {r.themeTitle && (
+                  <span className="rounded-[var(--radius-pill)] px-2 py-0.5 text-[11.5px] font-semibold" style={{ background: "var(--indigo-soft)", color: "var(--indigo)" }}>
+                    {r.themeTitle}
+                  </span>
+                )}
+              </>
+            ) : (
+              <span className="text-[12px] text-muted">Unclassified · awaiting AI analysis (M2)</span>
             )}
-            <span className="text-[12px] text-muted">· {r.customer ?? r.submitter}</span>
+            {(r.customer || r.submitter) && (
+              <span className="text-[12px] text-muted">· {r.customer ?? r.submitter}</span>
+            )}
           </div>
           <div className="mt-3 flex gap-2">
             <span className="rounded-[var(--radius-btn)] bg-indigo px-3 py-1.5 text-[12px] font-semibold text-white opacity-60">✓ Approve</span>

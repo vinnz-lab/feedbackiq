@@ -6,10 +6,10 @@ mkdirSync("shots", { recursive: true });
 
 // authed routes captured once per theme after logging in
 const ROUTES = [
-  ["dashboard", "/dashboard"],
-  ["register-items", "/register"],
+  ["ingest", "/ingest"],
   ["register-review", "/register?tab=review"],
   ["register-sources", "/register?tab=sources"],
+  ["dashboard", "/dashboard"],
 ];
 
 const browser = await chromium.launch();

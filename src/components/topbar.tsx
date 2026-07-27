@@ -35,6 +35,7 @@ export function Topbar({
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const current = NAV.find((n) => pathname === n.href || pathname.startsWith(n.href + "/"));
+  const crumb = pathname.startsWith("/ingest") ? "Ingest feedback" : (current?.label ?? "Dashboard");
 
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
@@ -47,7 +48,7 @@ export function Topbar({
   return (
     <header className="sticky top-0 z-50 flex h-16 items-center gap-4 border-b border-border bg-surface px-6">
       <div className="whitespace-nowrap text-[13px] text-muted">
-        {WORKSPACE_NAME} · <b className="font-semibold text-fg">{current?.label ?? "Dashboard"}</b>
+        {WORKSPACE_NAME} · <b className="font-semibold text-fg">{crumb}</b>
       </div>
 
       <div className="relative max-w-[400px] flex-1">
