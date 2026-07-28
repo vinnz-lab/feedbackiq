@@ -7,8 +7,8 @@ import {
   type FeedbackType,
   type Sentiment,
 } from "@/components/ui";
-import { ReviewCard } from "@/components/review-card";
-import { RunAiButton } from "@/components/run-ai-button";
+import { ReviewQueue } from "@/components/review-queue";
+import type { ReviewItem } from "@/components/review-card";
 
 export const dynamic = "force-dynamic";
 
@@ -179,34 +179,20 @@ async function ReviewTab() {
   }
 
   const unclassified = rows.filter((r) => !r.type).length;
+  const items: ReviewItem[] = rows.map((r) => ({
+    id: r.id,
+    quote: r.quote,
+    sourceIcon: KIND_ICON[r.sourceKind ?? ""] ?? "•",
+    sourceName: r.sourceName,
+    reason: r.reason,
+    type: r.type,
+    sentiment: r.sentiment,
+    confidence: r.confidence,
+    themeTitle: r.themeTitle,
+    who: r.customer ?? r.submitter,
+  }));
 
-  return (
-    <div className="flex flex-col gap-3">
-      <RunAiButton count={unclassified} />
-      {rows.map((r) => (
-        <ReviewCard
-          key={r.id}
-          themes={themeList}
-          item={{
-            id: r.id,
-            quote: r.quote,
-            sourceIcon: KIND_ICON[r.sourceKind ?? ""] ?? "•",
-            sourceName: r.sourceName,
-            reason: r.reason,
-            type: r.type,
-            sentiment: r.sentiment,
-            confidence: r.confidence,
-            themeTitle: r.themeTitle,
-            who: r.customer ?? r.submitter,
-          }}
-        />
-      ))}
-      <p className="text-[12px] text-muted">
-        Nothing here counts in themes, dashboards or digests until a human approves it. AI
-        pre-classification arrives in M2b.
-      </p>
-    </div>
-  );
+  return <ReviewQueue items={items} themes={themeList} unclassified={unclassified} />;
 }
 
 async function SourcesTab() {

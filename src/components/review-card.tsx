@@ -37,9 +37,15 @@ function reasonChip(reason: string | null) {
 export function ReviewCard({
   item,
   themes,
+  selectable = false,
+  selected = false,
+  onToggle,
 }: {
   item: ReviewItem;
   themes: { id: string; title: string }[];
+  selectable?: boolean;
+  selected?: boolean;
+  onToggle?: () => void;
 }) {
   const [pending, start] = useTransition();
   const [editing, setEditing] = useState(false);
@@ -53,6 +59,15 @@ export function ReviewCard({
   return (
     <div className="rounded-[var(--radius-card)] border border-border bg-surface p-4 shadow-[var(--shadow)]">
       <div className="mb-2 flex flex-wrap items-center gap-2">
+        {selectable && (
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={onToggle}
+            className="h-4 w-4 accent-[var(--indigo)]"
+            aria-label="Select item"
+          />
+        )}
         <span
           className="inline-flex items-center rounded-[var(--radius-pill)] px-2 py-0.5 text-[11.5px] text-muted"
           style={{ background: "var(--slate-soft)" }}

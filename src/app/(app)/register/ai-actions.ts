@@ -14,9 +14,11 @@ import { classifyItem } from "@/lib/ai/classify";
 export async function runAiAnalysis(): Promise<{ processed: number; error?: string }> {
   try {
     const db = await getDb();
-    const themes = await db
+    const [ws] = await db.select().from(schema.workspaces).limit(1);
+    const themeRows = await db
       .select({ id: schema.themes.id, title: schema.themes.title })
-      .from(schema.themes);
+      .from(schema.themes); // mutable — new themes get pushed as we create them
+    const themeByTitle = new Map(themeRows.map((t) => [t.title.toLowerCase(), t.id]));
     const areas = await db.select({ name: schema.productAreas.name }).from(schema.productAreas);
     const areaNames = areas.map((a) => a.name);
 
@@ -35,8 +37,27 @@ export async function runAiAnalysis(): Promise<{ processed: number; error?: stri
     let firstError: string | undefined;
     for (const it of items) {
       try {
-        const c = await classifyItem(it.quote, themes.map((t) => t.title), areaNames);
-        const match = themes.find((t) => t.title.toLowerCase() === c.theme.toLowerCase());
+        const c = await classifyItem(it.quote, themeRows.map((t) => t.title), areaNames);
+
+        // Match an existing theme, or auto-create a new one (deduped by title).
+        let themeId = themeByTitle.get(c.theme.toLowerCase()) ?? null;
+        if (!themeId && ws && c.theme && c.theme.toLowerCase() !== "new") {
+          const [nt] = await db
+            .insert(schema.themes)
+            .values({
+              workspaceId: ws.id,
+              title: c.theme,
+              type: c.type,
+              sentiment: c.sentiment,
+              priority: c.severity,
+              isEmerging: true,
+            })
+            .returning({ id: schema.themes.id, title: schema.themes.title });
+          themeId = nt.id;
+          themeByTitle.set(nt.title.toLowerCase(), nt.id);
+          themeRows.push({ id: nt.id, title: nt.title });
+        }
+
         await db
           .update(schema.feedbackItems)
           .set({
@@ -44,7 +65,7 @@ export async function runAiAnalysis(): Promise<{ processed: number; error?: stri
             sentiment: c.sentiment,
             severity: c.severity,
             confidence: c.confidence,
-            themeId: match ? match.id : null,
+            themeId,
             reviewReason: c.confidence === "Low" ? "low confidence" : it.reviewReason,
           })
           .where(eq(schema.feedbackItems.id, it.id));

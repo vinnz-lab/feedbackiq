@@ -24,8 +24,8 @@ Return ONLY a JSON object with keys: type, sentiment, severity, confidence, them
 - sentiment: exactly one of ${SENTS.join(", ")}
 - severity: exactly one of ${PRIOS.join(", ")} (how urgent/impactful)
 - confidence: your confidence in this classification, one of High, Medium, Low
-- theme: pick the SINGLE best match from this list, or "NEW" if none fits well: ${
-    themeTitles.length ? themeTitles.map((t) => `"${t}"`).join(", ") : "(no themes yet)"
+- theme: the SINGLE best match from this list, OR — if none fits well — a concise NEW theme title in Title Case (3–5 words, e.g. "Mobile App Stability"). Do NOT return the literal word "NEW". Existing themes: ${
+    themeTitles.length ? themeTitles.map((t) => `"${t}"`).join(", ") : "(none yet)"
   }
 Known product areas for context: ${areas.join(", ") || "(none)"}.
 
