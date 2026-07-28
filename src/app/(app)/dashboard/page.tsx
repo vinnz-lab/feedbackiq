@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { eq, count } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import {
@@ -62,9 +63,17 @@ export default async function DashboardPage() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-[30px] font-bold leading-9 tracking-tight">Dashboard</h1>
-        <p className="mt-1 text-[13px] text-muted">Feedback themes for Acme App · Last 30 days</p>
+      <div className="mb-6 flex flex-wrap items-start gap-4">
+        <div>
+          <h1 className="text-[30px] font-bold leading-9 tracking-tight">Dashboard</h1>
+          <p className="mt-1 text-[13px] text-muted">Feedback themes for Acme App · Last 30 days</p>
+        </div>
+        <Link
+          href="/digest"
+          className="ml-auto rounded-[var(--radius-btn)] bg-indigo px-4 py-2 text-[13px] font-semibold text-white transition hover:brightness-110"
+        >
+          ✨ Generate Digest
+        </Link>
       </div>
 
       <div className="mb-2">
