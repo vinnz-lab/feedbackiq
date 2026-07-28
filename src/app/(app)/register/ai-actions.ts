@@ -32,6 +32,7 @@ export async function runAiAnalysis(): Promise<{ processed: number; error?: stri
       .limit(25);
 
     let processed = 0;
+    let firstError: string | undefined;
     for (const it of items) {
       try {
         const c = await classifyItem(it.quote, themes.map((t) => t.title), areaNames);
@@ -49,15 +50,15 @@ export async function runAiAnalysis(): Promise<{ processed: number; error?: stri
           .where(eq(schema.feedbackItems.id, it.id));
         processed++;
         await new Promise((r) => setTimeout(r, 250)); // gentle pacing for the free tier
-      } catch {
-        // skip a failed item, keep going
+      } catch (e) {
+        if (!firstError) firstError = (e as Error).message;
       }
     }
 
     revalidatePath("/register");
     revalidatePath("/dashboard");
     revalidatePath("/", "layout");
-    return { processed };
+    return { processed, error: processed === 0 ? firstError : undefined };
   } catch (e) {
     return { processed: 0, error: (e as Error).message };
   }
