@@ -53,6 +53,7 @@ export type FeedbackTypeT = (typeof feedbackTypeEnum.enumValues)[number];
 export type SentimentT = (typeof sentimentEnum.enumValues)[number];
 export type PriorityT = (typeof priorityEnum.enumValues)[number];
 export type ConfidenceT = (typeof confidenceEnum.enumValues)[number];
+export type EnhancementStatusT = (typeof enhancementStatusEnum.enumValues)[number];
 
 export const reviewStatusEnum = pgEnum("review_status", [
   "needs_review", // unattended arrival or low-confidence — awaiting a human

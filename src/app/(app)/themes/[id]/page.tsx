@@ -15,6 +15,7 @@ import {
   type Priority,
 } from "@/components/ui";
 import { mixString } from "@/components/theme-card";
+import { PromoteButton } from "@/components/promote-button";
 
 export const dynamic = "force-dynamic";
 
@@ -88,6 +89,9 @@ export default async function ThemeDetailPage({
         {theme.isEmerging && (
           <span className="rounded-[4px] bg-rose px-1.5 py-0.5 text-[9.5px] font-extrabold tracking-wide text-white">EMERGING</span>
         )}
+        <div className="ml-auto">
+          <PromoteButton themeId={id} />
+        </div>
       </div>
 
       {theme.summary && (
