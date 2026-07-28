@@ -8,6 +8,7 @@ import {
   type Sentiment,
 } from "@/components/ui";
 import { ReviewCard } from "@/components/review-card";
+import { RunAiButton } from "@/components/run-ai-button";
 
 export const dynamic = "force-dynamic";
 
@@ -177,8 +178,11 @@ async function ReviewTab() {
     );
   }
 
+  const unclassified = rows.filter((r) => !r.type).length;
+
   return (
     <div className="flex flex-col gap-3">
+      <RunAiButton count={unclassified} />
       {rows.map((r) => (
         <ReviewCard
           key={r.id}
