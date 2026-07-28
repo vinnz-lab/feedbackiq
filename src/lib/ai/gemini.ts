@@ -2,7 +2,7 @@
  * Minimal Gemini client via REST (no SDK dependency).
  * Uses the free Google AI Studio tier. Key lives in GEMINI_API_KEY (env only).
  */
-const MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+const MODEL = process.env.GEMINI_MODEL || "gemini-flash-latest";
 
 export async function geminiJson(prompt: string): Promise<Record<string, unknown>> {
   const key = process.env.GEMINI_API_KEY;
