@@ -16,17 +16,28 @@ export async function listUsers() {
   return db.select().from(schema.users).orderBy(schema.users.createdAt);
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function getCurrentUser() {
   const jar = await cookies();
   const uid = jar.get(COOKIE)?.value;
-  if (!uid) return null;
-  const db = await getDb();
-  const [u] = await db
-    .select()
-    .from(schema.users)
-    .where(eq(schema.users.id, uid))
-    .limit(1);
-  return u ?? null;
+
+  // A stale or tampered cookie must fail closed (→ /login), never crash the
+  // request. Postgres rejects a non-UUID literal, which would otherwise 500
+  // every gated page for that browser until the cookie was cleared by hand.
+  if (!uid || !UUID_RE.test(uid)) return null;
+
+  try {
+    const db = await getDb();
+    const [u] = await db
+      .select()
+      .from(schema.users)
+      .where(eq(schema.users.id, uid))
+      .limit(1);
+    return u ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export function initials(name: string) {

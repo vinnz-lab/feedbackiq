@@ -4,10 +4,18 @@ import { revalidatePath } from "next/cache";
 import { and, eq } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { summarizeTheme } from "@/lib/ai/summarize";
+import { guardAiRun, requireUser } from "@/lib/guard";
 
 export async function regenerateSummaries(): Promise<{ updated: number; error?: string }> {
   try {
+    const user = await requireUser();
     const db = await getDb();
+    const [ws] = await db.select().from(schema.workspaces).limit(1);
+    if (!ws) return { updated: 0, error: "No workspace found." };
+
+    const gate = await guardAiRun("ai.summarize", ws.id, user);
+    if (!gate.ok) return { updated: 0, error: gate.error };
+
     const themes = await db.select().from(schema.themes);
     let updated = 0;
     let firstError: string | undefined;

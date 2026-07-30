@@ -1,8 +1,14 @@
 import { getDb, schema } from "@/db";
 import { parseFile, parsePaste, type ParsedSource } from "@/lib/ingest/parse";
+import { getCurrentUser } from "@/lib/auth";
+import { logAudit } from "@/lib/guard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+/** Uploads land straight in the review queue, so this endpoint must not be open
+ *  to the internet: an anonymous caller could flood the workspace with junk. */
+const MAX_UPLOAD_BYTES = 25 * 1024 * 1024; // 25MB per file
 
 async function persist(sources: ParsedSource[]) {
   const db = await getDb();
@@ -58,6 +64,11 @@ async function persist(sources: ParsedSource[]) {
 }
 
 export async function POST(request: Request) {
+  const user = await getCurrentUser();
+  if (!user) {
+    return Response.json({ error: "Sign in to upload feedback." }, { status: 401 });
+  }
+
   try {
     const ct = request.headers.get("content-type") || "";
     const parsed: ParsedSource[] = [];
@@ -66,6 +77,12 @@ export async function POST(request: Request) {
       const form = await request.formData();
       for (const f of form.getAll("files")) {
         if (f instanceof File && f.size > 0) {
+          if (f.size > MAX_UPLOAD_BYTES) {
+            return Response.json(
+              { error: `"${f.name}" is larger than 25MB. Please split it into smaller files.` },
+              { status: 413 },
+            );
+          }
           const buf = Buffer.from(await f.arrayBuffer());
           parsed.push(await parseFile(f.name, buf));
         }
@@ -81,6 +98,20 @@ export async function POST(request: Request) {
       return Response.json({ error: "No files or text provided." }, { status: 400 });
     }
     const result = await persist(parsed);
+
+    const db = await getDb();
+    const [ws] = await db.select().from(schema.workspaces).limit(1);
+    if (ws) {
+      await logAudit({
+        workspaceId: ws.id,
+        actorId: user.id,
+        actorLabel: user.name,
+        action: "ingest.upload",
+        entityType: "source",
+        after: { items: result.totalItems, sources: result.sources.map((s) => s.filename) },
+      });
+    }
+
     return Response.json(result);
   } catch (err) {
     console.error("ingest error", err);

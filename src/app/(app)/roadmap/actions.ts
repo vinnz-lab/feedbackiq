@@ -4,8 +4,10 @@ import { revalidatePath } from "next/cache";
 import { and, count, eq } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import type { EnhancementStatusT } from "@/db/schema";
+import { requireUser } from "@/lib/guard";
 
 export async function updateEnhancementStatus(id: string, status: EnhancementStatusT) {
+  await requireUser();
   const db = await getDb();
   await db
     .update(schema.enhancements)
@@ -18,6 +20,7 @@ export async function updateEnhancementStatus(id: string, status: EnhancementSta
 export async function promoteThemeToEnhancement(
   themeId: string,
 ): Promise<{ id: string; created: boolean }> {
+  await requireUser();
   const db = await getDb();
 
   const existing = await db

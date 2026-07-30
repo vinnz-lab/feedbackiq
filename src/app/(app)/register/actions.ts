@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { eq, inArray } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import type { FeedbackTypeT, SentimentT, PriorityT } from "@/db/schema";
+import { requireUser } from "@/lib/guard";
 
 async function touch() {
   revalidatePath("/register");
@@ -12,6 +13,7 @@ async function touch() {
 }
 
 export async function bulkApprove(ids: string[]) {
+  await requireUser();
   if (!ids.length) return;
   const db = await getDb();
   await db
@@ -22,6 +24,7 @@ export async function bulkApprove(ids: string[]) {
 }
 
 export async function bulkDiscard(ids: string[]) {
+  await requireUser();
   if (!ids.length) return;
   const db = await getDb();
   await db
@@ -32,6 +35,7 @@ export async function bulkDiscard(ids: string[]) {
 }
 
 export async function approveItem(id: string) {
+  await requireUser();
   const db = await getDb();
   await db
     .update(schema.feedbackItems)
@@ -41,6 +45,7 @@ export async function approveItem(id: string) {
 }
 
 export async function discardItem(id: string) {
+  await requireUser();
   const db = await getDb();
   await db
     .update(schema.feedbackItems)
@@ -58,6 +63,7 @@ export async function correctAndApprove(
     themeId?: string | null;
   },
 ) {
+  await requireUser();
   const db = await getDb();
   await db
     .update(schema.feedbackItems)

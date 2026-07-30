@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { and, eq, isNull } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { classifyItem } from "@/lib/ai/classify";
+import { guardAiRun, requireUser } from "@/lib/guard";
 
 /**
  * M2b-1: classify the unclassified needs-review items with Gemini.
@@ -13,8 +14,14 @@ import { classifyItem } from "@/lib/ai/classify";
  */
 export async function runAiAnalysis(): Promise<{ processed: number; error?: string }> {
   try {
+    const user = await requireUser();
     const db = await getDb();
     const [ws] = await db.select().from(schema.workspaces).limit(1);
+    if (!ws) return { processed: 0, error: "No workspace found." };
+
+    const gate = await guardAiRun("ai.classify", ws.id, user);
+    if (!gate.ok) return { processed: 0, error: gate.error };
+
     const themeRows = await db
       .select({ id: schema.themes.id, title: schema.themes.title })
       .from(schema.themes); // mutable — new themes get pushed as we create them

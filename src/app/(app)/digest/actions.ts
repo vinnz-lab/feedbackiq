@@ -4,12 +4,18 @@ import { revalidatePath } from "next/cache";
 import { and, desc, eq, count } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { generateDigestAi } from "@/lib/ai/digest";
+import { guardAiRun, requireUser } from "@/lib/guard";
 
 export async function generateDigest(): Promise<{ ok: boolean; error?: string }> {
   try {
+    const user = await requireUser();
     const db = await getDb();
     const fi = schema.feedbackItems;
     const [ws] = await db.select().from(schema.workspaces).limit(1);
+    if (!ws) return { ok: false, error: "No workspace found." };
+
+    const gate = await guardAiRun("ai.digest", ws.id, user);
+    if (!gate.ok) return { ok: false, error: gate.error };
 
     // theme mention counts (approved) + sentiment
     const themeRows = await db.select().from(schema.themes);
