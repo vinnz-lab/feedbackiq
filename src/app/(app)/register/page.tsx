@@ -11,6 +11,9 @@ import { ReviewQueue } from "@/components/review-queue";
 import type { ReviewItem } from "@/components/review-card";
 
 export const dynamic = "force-dynamic";
+// Server Action timeout is set at the page level; AI batches are paced and
+// can run for minutes. 300s is the Vercel Hobby ceiling.
+export const maxDuration = 300;
 
 const KIND_ICON: Record<string, string> = {
   email: "📧",

@@ -1,11 +1,19 @@
 /**
  * End-to-end regression check against a locally running app.
- * Confirms the auth guards protect the endpoints WITHOUT breaking the real
- * signed-in flow. Run after any change to auth, guards, or server actions:
+ *
+ * Covers: the auth guards actually protect the endpoints; the real signed-in
+ * flow still works; AI runs are rate-limited; and AI failures are reported
+ * honestly rather than hidden behind a success count.
+ *
+ * Run after any change to auth, guards, server actions, or the AI pipeline:
  *
  *   PGLITE_DIR=./.pglite-test npx tsx scripts/db-setup.ts
+ *   PGLITE_DIR=./.pglite-test npx tsx scripts/seed-unclassified.ts 8
  *   PGLITE_DIR=./.pglite-test npx next start -p 4000 &
  *   node regress.mjs
+ *
+ * No GEMINI_API_KEY is needed: the guards and the failure-reporting paths all
+ * run before any Gemini call.
  */
 import { chromium } from "playwright";
 
@@ -71,6 +79,29 @@ for (const [name, path, marker] of [
 ]) {
   await page.goto(base + path, { waitUntil: "networkidle" });
   check(`${name} renders`, await page.locator(`text=${marker}`).first().isVisible());
+}
+
+// ---------- AI failures must be reported, not hidden ----------
+// Regression guard for the "everything stuck on Awaiting AI" bug: the run used
+// to surface an error only when NOTHING succeeded, so a 5-of-40 run looked
+// clean and left 35 items silently unclassified.
+console.log("\nAI failure honesty:");
+await page.goto(base + "/register?tab=review", { waitUntil: "networkidle" });
+const runAi = page.locator("button", { hasText: /Run AI analysis/ });
+if (await runAi.isEnabled()) {
+  await runAi.click();
+  await page
+    .waitForFunction(() => !document.body.textContent?.includes("Analysing…"), { timeout: 120000 })
+    .catch(() => {});
+  await page.waitForTimeout(1500);
+  const line =
+    (await page.locator("main").innerText()).match(
+      /[^\n]*(failed|Analysed|still waiting|Nothing to analyse)[^\n]*/,
+    )?.[0] ?? "";
+  check("AI failures are reported", /failed/.test(line), line.trim());
+  check("failure names a cause", /GEMINI|rate limit|Gemini/i.test(line));
+} else {
+  check("AI failures are reported", false, "no unclassified items — run seed-unclassified.ts");
 }
 
 // ---------- AI rate limiting ----------

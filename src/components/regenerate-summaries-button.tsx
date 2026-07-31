@@ -15,9 +15,11 @@ export function RegenerateSummariesButton() {
           start(async () => {
             setMsg(null);
             const r = await regenerateSummaries();
-            setMsg(
-              r.error ? `⚠ ${r.error}` : `✓ Summarised ${r.updated} theme${r.updated === 1 ? "" : "s"}`,
-            );
+            const parts: string[] = [];
+            if (r.updated) parts.push(`✓ Summarised ${r.updated}`);
+            if (r.failed) parts.push(`${r.failed} failed`);
+            const summary = parts.join(" · ") || "Nothing to summarise";
+            setMsg(r.error ? `${summary} — ⚠ ${r.error}` : summary);
           })
         }
         className="rounded-[var(--radius-btn)] border border-border bg-surface px-3.5 py-1.5 text-[12.5px] font-semibold shadow-[var(--shadow)] transition hover:bg-hover disabled:opacity-50"

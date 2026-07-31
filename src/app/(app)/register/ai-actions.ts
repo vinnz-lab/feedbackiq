@@ -1,26 +1,50 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, count, eq, isNull } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { classifyItem } from "@/lib/ai/classify";
+import { currentIntervalMs, GeminiRateLimitError } from "@/lib/ai/gemini";
 import { guardAiRun, requireUser } from "@/lib/guard";
 
+/** Vercel caps a function at 300s (Hobby cannot raise it), so stop well short
+ *  and report what's left rather than being killed mid-run. */
+const TIME_BUDGET_MS = 210_000;
+
+/** Upper bound on how many items one run will look at. Pacing, not this, is
+ *  normally what limits a run. */
+const MAX_ITEMS_PER_RUN = 200;
+
+export type AiRunResult = {
+  processed: number;
+  failed: number;
+  remaining: number;
+  /** Set whenever anything went wrong — including partial failures. */
+  error?: string;
+  /** True when we ran out of time rather than out of items. */
+  timedOut?: boolean;
+};
+
 /**
- * M2b-1: classify the unclassified needs-review items with Gemini.
+ * Classify the unclassified needs-review items with Gemini.
  * Fills type/sentiment/severity/confidence + best-match theme. Items stay in
  * the needs-review queue — a human still approves (AI writes suggestions,
  * humans write facts).
+ *
+ * Reports partial failures honestly: an earlier version only surfaced an error
+ * when NOTHING succeeded, so a run that classified 5 of 40 items looked like a
+ * clean success and left 35 stuck on "Awaiting AI" with no explanation.
  */
-export async function runAiAnalysis(): Promise<{ processed: number; error?: string }> {
+export async function runAiAnalysis(): Promise<AiRunResult> {
+  const started = Date.now();
   try {
     const user = await requireUser();
     const db = await getDb();
     const [ws] = await db.select().from(schema.workspaces).limit(1);
-    if (!ws) return { processed: 0, error: "No workspace found." };
+    if (!ws) return { processed: 0, failed: 0, remaining: 0, error: "No workspace found." };
 
     const gate = await guardAiRun("ai.classify", ws.id, user);
-    if (!gate.ok) return { processed: 0, error: gate.error };
+    if (!gate.ok) return { processed: 0, failed: 0, remaining: 0, error: gate.error };
 
     const themeRows = await db
       .select({ id: schema.themes.id, title: schema.themes.title })
@@ -38,11 +62,20 @@ export async function runAiAnalysis(): Promise<{ processed: number; error?: stri
           isNull(schema.feedbackItems.type),
         ),
       )
-      .limit(25);
+      .limit(MAX_ITEMS_PER_RUN);
 
     let processed = 0;
+    let failed = 0;
     let firstError: string | undefined;
+    let throttled = 0;
+    let timedOut = false;
+
     for (const it of items) {
+      // Leave enough headroom for one more paced call before the cap.
+      if (Date.now() - started > TIME_BUDGET_MS - currentIntervalMs()) {
+        timedOut = true;
+        break;
+      }
       try {
         const c = await classifyItem(it.quote, themeRows.map((t) => t.title), areaNames);
 
@@ -73,12 +106,16 @@ export async function runAiAnalysis(): Promise<{ processed: number; error?: stri
             severity: c.severity,
             confidence: c.confidence,
             themeId,
-            reviewReason: c.confidence === "Low" ? "low confidence" : it.reviewReason,
+            // Clear "awaiting AI" once classified, otherwise the card keeps
+            // showing the Awaiting AI chip even though the AI has run.
+            reviewReason: c.confidence === "Low" ? "low confidence" : null,
           })
           .where(eq(schema.feedbackItems.id, it.id));
         processed++;
-        await new Promise((r) => setTimeout(r, 250)); // gentle pacing for the free tier
+        // Pacing + retry are handled centrally in lib/ai/gemini.ts.
       } catch (e) {
+        failed++;
+        if (e instanceof GeminiRateLimitError) throttled++;
         if (!firstError) firstError = (e as Error).message;
       }
     }
@@ -86,8 +123,30 @@ export async function runAiAnalysis(): Promise<{ processed: number; error?: stri
     revalidatePath("/register");
     revalidatePath("/dashboard");
     revalidatePath("/", "layout");
-    return { processed, error: processed === 0 ? firstError : undefined };
+
+    // Ask the DB rather than deriving it — covers items skipped on time, items
+    // that failed, and anything beyond MAX_ITEMS_PER_RUN.
+    const [{ n: remaining }] = await db
+      .select({ n: count() })
+      .from(schema.feedbackItems)
+      .where(
+        and(
+          eq(schema.feedbackItems.reviewStatus, "needs_review"),
+          isNull(schema.feedbackItems.type),
+        ),
+      );
+
+    // The caller renders the counts, so don't repeat them in the reason.
+    let error: string | undefined;
+    if (failed > 0) {
+      error =
+        throttled >= failed
+          ? "hit the Gemini free-tier rate limit — wait a minute, then run again to continue."
+          : firstError;
+    }
+
+    return { processed, failed, remaining: Number(remaining), error, timedOut };
   } catch (e) {
-    return { processed: 0, error: (e as Error).message };
+    return { processed: 0, failed: 0, remaining: 0, error: (e as Error).message };
   }
 }

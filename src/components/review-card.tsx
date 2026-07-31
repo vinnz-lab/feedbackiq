@@ -30,8 +30,18 @@ function reasonChip(reason: string | null) {
   const map: Record<string, { bg: string; fg: string; label: string }> = {
     "low confidence": { bg: "var(--amber-soft)", fg: "var(--amber)", label: "◐ Low confidence" },
     "awaiting AI": { bg: "var(--slate-soft)", fg: "var(--slate)", label: "✨ Awaiting AI" },
+    "arrived unattended": { bg: "var(--indigo-soft)", fg: "var(--indigo)", label: "⚡ Arrived unattended" },
   };
-  return map[reason ?? ""] ?? { bg: "var(--indigo-soft)", fg: "var(--indigo)", label: "⚡ Arrived unattended" };
+  // No reason left = the AI classified it confidently and it's ready for a
+  // human decision. Previously this fell through to "Arrived unattended",
+  // which was simply wrong for uploaded files.
+  return (
+    map[reason ?? ""] ?? {
+      bg: "var(--emerald-soft)",
+      fg: "var(--emerald)",
+      label: "✨ AI classified",
+    }
+  );
 }
 
 export function ReviewCard({

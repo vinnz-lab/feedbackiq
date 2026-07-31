@@ -4,6 +4,9 @@ import { ThemeCard, type ThemeAgg } from "@/components/theme-card";
 import { RegenerateSummariesButton } from "@/components/regenerate-summaries-button";
 
 export const dynamic = "force-dynamic";
+// Server Action timeout is set at the page level; AI batches are paced and
+// can run for minutes. 300s is the Vercel Hobby ceiling.
+export const maxDuration = 300;
 
 export default async function ThemesPage() {
   const db = await getDb();

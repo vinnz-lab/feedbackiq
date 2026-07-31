@@ -3,6 +3,9 @@ import { getDb, schema } from "@/db";
 import { GenerateDigestButton } from "@/components/generate-digest-button";
 
 export const dynamic = "force-dynamic";
+// Server Action timeout is set at the page level; AI batches are paced and
+// can run for minutes. 300s is the Vercel Hobby ceiling.
+export const maxDuration = 300;
 
 type Content = {
   headline: string;
