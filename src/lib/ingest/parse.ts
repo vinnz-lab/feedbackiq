@@ -42,35 +42,82 @@ export function detectKind(filename: string): SourceKind {
 }
 
 /* ---------------- spreadsheet column heuristics ---------------- */
-function pickColumns(rows: Record<string, unknown>[]) {
-  const headers = Object.keys(rows[0] ?? {});
-  const find = (re: RegExp) => headers.find((h) => re.test(h));
-  let textCol = find(/feedback|comment|verbatim|quote|response|remark|note|text|message/i);
-  if (!textCol) {
-    // fall back to the column with the longest average text
-    let best = "";
-    let bestLen = -1;
-    for (const h of headers) {
-      const avg =
-        rows.reduce((s, r) => s + String(r[h] ?? "").length, 0) / (rows.length || 1);
-      if (avg > bestLen) {
-        bestLen = avg;
-        best = h;
-      }
-    }
-    textCol = best;
-  }
+
+/** Header words that suggest free-text feedback. */
+const NAME_POSITIVE =
+  /feedback|comment|verbatim|quote|response|remark|note|text|message|description|detail|issue|request/i;
+/** Header words that mark a column as an identifier — never the feedback body. */
+const NAME_NEGATIVE =
+  /(^|[^a-z])(id|ids|no|num|number|index|idx|ref|row|code|key|seq|rank|score|rating|count|qty)([^a-z]|$)|#/i;
+
+type ColStat = {
+  header: string;
+  avgLen: number;
+  /** Share of values that are purely a number. */
+  numericFrac: number;
+  /** Share of values with 3+ words — the signature of real prose. */
+  wordyFrac: number;
+};
+
+function statsFor(rows: Record<string, unknown>[], header: string): ColStat {
+  const sample = rows.slice(0, 100);
+  const vals = sample.map((r) => String(r[header] ?? "").trim()).filter(Boolean);
+  const n = vals.length || 1;
   return {
-    textCol,
-    customerCol: find(/customer|account|company|client|organi[sz]ation|org/i),
-    dateCol: find(/date|when|created|timestamp/i),
-    submitterCol: find(/submitter|author|user|name|reporter|from/i),
+    header,
+    avgLen: vals.reduce((s, v) => s + v.length, 0) / n,
+    numericFrac: vals.filter((v) => /^-?\d+(?:[.,]\d+)?$/.test(v)).length / n,
+    wordyFrac: vals.filter((v) => v.split(/\s+/).length >= 3).length / n,
   };
 }
 
-function rowsToItems(rows: Record<string, unknown>[]): ParsedItem[] {
-  if (!rows.length) return [];
-  const { textCol, customerCol, dateCol, submitterCol } = pickColumns(rows);
+/**
+ * Scores how likely a column is to hold the actual feedback text.
+ *
+ * Content is deliberately weighted above the header name. The previous version
+ * took the FIRST header matching /feedback|.../, so a "Feedback ID" column beat
+ * the real feedback column and every row imported as a bare row number. A
+ * column of numbers is never feedback, whatever it happens to be called.
+ */
+function textScore(s: ColStat): number {
+  let score = 0;
+  if (NAME_POSITIVE.test(s.header)) score += 3;
+  if (NAME_NEGATIVE.test(s.header)) score -= 6;
+  score += Math.min(s.avgLen / 20, 4); // longer values look more like prose
+  score += s.wordyFrac * 4; // multi-word values are the strongest signal
+  score -= s.numericFrac * 10; // numeric columns are disqualifying
+  return score;
+}
+
+export function pickColumns(rows: Record<string, unknown>[]) {
+  const headers = Object.keys(rows[0] ?? {});
+  const stats = headers.map((h) => statsFor(rows, h));
+  const ranked = [...stats].sort((a, b) => textScore(b) - textScore(a));
+  const best = ranked[0];
+  const textCol = best?.header ?? headers[0] ?? "";
+
+  // Metadata columns: matched by name, but never steal the text column and
+  // never grab something that is itself prose.
+  const findMeta = (re: RegExp) =>
+    stats.find((s) => s.header !== textCol && re.test(s.header) && s.wordyFrac < 0.5)?.header;
+
+  return {
+    textCol,
+    customerCol: findMeta(/customer|account|company|client|organi[sz]ation|org/i),
+    dateCol: findMeta(/date|when|created|timestamp/i),
+    submitterCol: findMeta(/submitter|author|user|name|reporter|from|contact/i),
+    /** True when nothing in the sheet really looks like prose. */
+    uncertain: !best || (best.wordyFrac < 0.3 && best.avgLen < 25),
+  };
+}
+
+export function rowsToItems(rows: Record<string, unknown>[]): {
+  items: ParsedItem[];
+  mapping: string;
+  uncertain: boolean;
+} {
+  if (!rows.length) return { items: [], mapping: "", uncertain: false };
+  const { textCol, customerCol, dateCol, submitterCol, uncertain } = pickColumns(rows);
   const items: ParsedItem[] = [];
   rows.forEach((r, i) => {
     const quote = String(r[textCol] ?? "").trim();
@@ -85,7 +132,7 @@ function rowsToItems(rows: Record<string, unknown>[]): ParsedItem[] {
       occurredAt: d && !isNaN(d.getTime()) ? d : null,
     });
   });
-  return items;
+  return { items, mapping: textCol, uncertain };
 }
 
 /* ---------------- transcript / text cleaners ---------------- */
@@ -164,14 +211,18 @@ export async function parseFile(
         const sheet = wb.Sheets[wb.SheetNames[0]];
         rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" });
       }
-      const items = rowsToItems(rows);
+      const { items, mapping, uncertain } = rowsToItems(rows);
       return {
         kind,
         filename,
         status: "processed",
         items,
+        // Always state which column was read as the feedback text. A silent bad
+        // mapping is how a whole sheet imported as row numbers went unnoticed.
         note: `${items.length} row${items.length === 1 ? "" : "s"} imported${
           rows.length - items.length > 0 ? ` · ${rows.length - items.length} empty skipped` : ""
+        }${mapping ? ` · read "${mapping}" as the feedback text` : ""}${
+          uncertain ? " · ⚠ no clear text column — please check" : ""
         }`,
       };
     }
