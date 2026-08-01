@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { and, count, eq, isNull } from "drizzle-orm";
+import { and, count, eq, isNull, or, sql } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { classifyItem } from "@/lib/ai/classify";
 import { extractFeedbackItems, SPLIT_THRESHOLD_CHARS } from "@/lib/ai/extract";
@@ -60,15 +60,22 @@ export async function runAiAnalysis(): Promise<AiRunResult> {
     const areas = await db.select({ name: schema.productAreas.name }).from(schema.productAreas);
     const areaNames = areas.map((a) => a.name);
 
+    // Work to do = anything unclassified, PLUS any long source still whole.
+    // A long source that was already "classified" is still wrong — classifyItem
+    // only ever saw its first 2000 characters — so it must remain eligible for
+    // splitting rather than being permanently skipped.
+    const needsWork = and(
+      eq(schema.feedbackItems.reviewStatus, "needs_review"),
+      or(
+        isNull(schema.feedbackItems.type),
+        sql`length(${schema.feedbackItems.quote}) > ${SPLIT_THRESHOLD_CHARS}`,
+      ),
+    );
+
     const items = await db
       .select()
       .from(schema.feedbackItems)
-      .where(
-        and(
-          eq(schema.feedbackItems.reviewStatus, "needs_review"),
-          isNull(schema.feedbackItems.type),
-        ),
-      )
+      .where(needsWork)
       .limit(MAX_ITEMS_PER_RUN);
 
     let processed = 0;
@@ -244,16 +251,12 @@ export async function runAiAnalysis(): Promise<AiRunResult> {
     revalidatePath("/", "layout");
 
     // Ask the DB rather than deriving it — covers items skipped on time, items
-    // that failed, and anything beyond MAX_ITEMS_PER_RUN.
+    // that failed, and anything beyond MAX_ITEMS_PER_RUN. Uses the same
+    // predicate as the work query so "still waiting" includes unsplit sources.
     const [{ n: remaining }] = await db
       .select({ n: count() })
       .from(schema.feedbackItems)
-      .where(
-        and(
-          eq(schema.feedbackItems.reviewStatus, "needs_review"),
-          isNull(schema.feedbackItems.type),
-        ),
-      );
+      .where(needsWork);
 
     // The caller renders the counts, so don't repeat them in the reason.
     let error: string | undefined;

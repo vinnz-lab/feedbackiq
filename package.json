@@ -9,7 +9,8 @@
     "lint": "eslint",
     "test:unit": "tsx scripts/gemini-test.ts && tsx scripts/parse-test.ts && tsx scripts/extract-test.ts",
     "test:e2e": "node regress.mjs",
-    "db:test": "PGLITE_DIR=./.pglite-test tsx scripts/db-setup.ts && PGLITE_DIR=./.pglite-test tsx scripts/seed-unclassified.ts 8"
+    "db:test": "PGLITE_DIR=./.pglite-test tsx scripts/db-setup.ts && PGLITE_DIR=./.pglite-test tsx scripts/seed-unclassified.ts 8",
+    "test:db": "PGLITE_DIR=./.pglite-test tsx scripts/split-query-test.ts"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.4",
