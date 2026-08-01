@@ -2,15 +2,27 @@ import { getDb, schema } from "@/db";
 import { parseFile, parsePaste, type ParsedSource } from "@/lib/ingest/parse";
 import { getCurrentUser } from "@/lib/auth";
 import { logAudit } from "@/lib/guard";
+import {
+  isTranscriptionConfigured,
+  submitTranscription,
+  uploadAudio,
+} from "@/lib/ai/transcribe";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /** Uploads land straight in the review queue, so this endpoint must not be open
  *  to the internet: an anonymous caller could flood the workspace with junk. */
-const MAX_UPLOAD_BYTES = 25 * 1024 * 1024; // 25MB per file
 
-async function persist(sources: ParsedSource[]) {
+/** Vercel rejects request bodies over 4.5MB at the edge on every plan, before
+ *  any of this code runs — so a larger cap here would be a lie. Kept slightly
+ *  under to leave room for multipart overhead. */
+const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
+
+/** A parsed source plus, for audio, the bytes we still need to send onward. */
+type Incoming = { parsed: ParsedSource; audio?: Buffer };
+
+async function persist(incoming: Incoming[]) {
   const db = await getDb();
   const [ws] = await db.select().from(schema.workspaces).limit(1);
   if (!ws) throw new Error("No workspace found");
@@ -18,18 +30,46 @@ async function persist(sources: ParsedSource[]) {
   const summary: { filename: string; kind: string; status: string; items: number; note?: string }[] = [];
   let totalItems = 0;
 
-  for (const s of sources) {
+  for (const { parsed: s, audio } of incoming) {
+    // Recordings: hand the audio to AssemblyAI now and remember the job, so a
+    // later poll can turn it into a diarized transcript. Previously the bytes
+    // were simply dropped and the source sat on "queued" forever.
+    // Widened to the DB enum: the parser never yields "processing", but a
+    // queued transcription does.
+    let status: "queued" | "processing" | "processed" | "failed" = s.status;
+    let note = s.note ?? null;
+    let meta: Record<string, unknown> | null = s.rawText
+      ? { rawText: s.rawText.slice(0, 20000) }
+      : null;
+
+    if (s.kind === "recording" && audio) {
+      if (!isTranscriptionConfigured()) {
+        note = "Add ASSEMBLYAI_API_KEY to enable transcription.";
+      } else {
+        try {
+          const url = await uploadAudio(audio);
+          const jobId = await submitTranscription(url);
+          meta = { ...(meta ?? {}), assemblyId: jobId };
+          status = "processing";
+          note = "Transcribing with speaker labels…";
+        } catch (e) {
+          status = "failed";
+          note = `Could not start transcription: ${(e as Error).message}`;
+        }
+      }
+    }
+
     const [src] = await db
       .insert(schema.sources)
       .values({
         workspaceId: ws.id,
         kind: s.kind,
         filename: s.filename,
-        status: s.status,
+        status,
         itemCount: s.items.length,
-        note: s.note ?? null,
+        note,
         autoIngested: false,
-        meta: s.rawText ? { rawText: s.rawText.slice(0, 20000) } : null,
+        meta,
       })
       .returning();
 
@@ -55,9 +95,9 @@ async function persist(sources: ParsedSource[]) {
     summary.push({
       filename: s.filename,
       kind: s.kind,
-      status: s.status,
+      status,
       items: s.items.length,
-      note: s.note,
+      note: note ?? undefined,
     });
   }
   return { totalItems, sources: summary };
@@ -71,7 +111,7 @@ export async function POST(request: Request) {
 
   try {
     const ct = request.headers.get("content-type") || "";
-    const parsed: ParsedSource[] = [];
+    const incoming: Incoming[] = [];
 
     if (ct.includes("multipart/form-data")) {
       const form = await request.formData();
@@ -79,25 +119,29 @@ export async function POST(request: Request) {
         if (f instanceof File && f.size > 0) {
           if (f.size > MAX_UPLOAD_BYTES) {
             return Response.json(
-              { error: `"${f.name}" is larger than 25MB. Please split it into smaller files.` },
+              {
+                error: `"${f.name}" is ${(f.size / 1024 / 1024).toFixed(1)}MB. Uploads are capped at ${(MAX_UPLOAD_BYTES / 1024 / 1024).toFixed(1)}MB by the hosting platform.`,
+              },
               { status: 413 },
             );
           }
           const buf = Buffer.from(await f.arrayBuffer());
-          parsed.push(await parseFile(f.name, buf));
+          const parsed = await parseFile(f.name, buf);
+          // Keep the bytes only for audio — everything else is already text.
+          incoming.push({ parsed, audio: parsed.kind === "recording" ? buf : undefined });
         }
       }
       const paste = form.get("paste");
-      if (typeof paste === "string" && paste.trim()) parsed.push(parsePaste(paste));
+      if (typeof paste === "string" && paste.trim()) incoming.push({ parsed: parsePaste(paste) });
     } else {
       const body = (await request.json().catch(() => ({}))) as { paste?: string };
-      if (body.paste && body.paste.trim()) parsed.push(parsePaste(body.paste));
+      if (body.paste && body.paste.trim()) incoming.push({ parsed: parsePaste(body.paste) });
     }
 
-    if (!parsed.length) {
+    if (!incoming.length) {
       return Response.json({ error: "No files or text provided." }, { status: 400 });
     }
-    const result = await persist(parsed);
+    const result = await persist(incoming);
 
     const db = await getDb();
     const [ws] = await db.select().from(schema.workspaces).limit(1);

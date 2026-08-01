@@ -11,6 +11,11 @@ type Summary = {
 
 const ACCEPT = ".eml,.txt,.vtt,.docx,.csv,.xlsx,.xls,.mp3,.mp4,.m4a,.wav";
 
+/** The host rejects request bodies over 4.5MB before any of our code runs, so
+ *  we stop oversized files here rather than letting them die with an opaque
+ *  413 that explains nothing. Kept under the ceiling for multipart overhead. */
+const MAX_FILE_BYTES = 4 * 1024 * 1024;
+
 export default function IngestPage() {
   const [files, setFiles] = useState<File[]>([]);
   const [paste, setPaste] = useState("");
@@ -21,7 +26,21 @@ export default function IngestPage() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const addFiles = (list: FileList | null) => {
-    if (list) setFiles((prev) => [...prev, ...Array.from(list)]);
+    if (!list) return;
+    const incoming = Array.from(list);
+    const tooBig = incoming.filter((f) => f.size > MAX_FILE_BYTES);
+    const ok = incoming.filter((f) => f.size <= MAX_FILE_BYTES);
+
+    setError(
+      tooBig.length
+        ? `${tooBig.map((f) => `“${f.name}” (${(f.size / 1024 / 1024).toFixed(1)}MB)`).join(", ")} exceeds the ${(
+            MAX_FILE_BYTES /
+            1024 /
+            1024
+          ).toFixed(0)}MB upload limit. For a long recording, upload a shorter clip or an exported transcript for now.`
+        : null,
+    );
+    if (ok.length) setFiles((prev) => [...prev, ...ok]);
   };
   const removeFile = (i: number) => setFiles((prev) => prev.filter((_, k) => k !== i));
 
@@ -106,8 +125,9 @@ export default function IngestPage() {
     <div className="mx-auto max-w-2xl">
       <h1 className="text-[30px] font-bold leading-9 tracking-tight">Ingest feedback</h1>
       <p className="mt-1 mb-6 text-[13px] text-muted">
-        Drop files or paste text. We detect the source type and extract feedback items into the
-        database.
+        Drop files or paste text. We detect the source type and extract feedback items. Audio and
+        video are transcribed with speaker labels, then split into individual points. Max 4MB per
+        file.
       </p>
 
       {/* dropzone */}

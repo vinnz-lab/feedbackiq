@@ -8,6 +8,7 @@ import {
   type Sentiment,
 } from "@/components/ui";
 import { ReviewQueue } from "@/components/review-queue";
+import { CheckTranscriptionsButton } from "@/components/check-transcriptions-button";
 import type { ReviewItem } from "@/components/review-card";
 
 export const dynamic = "force-dynamic";
@@ -201,7 +202,15 @@ async function ReviewTab() {
 async function SourcesTab() {
   const db = await getDb();
   const rows = await db.select().from(schema.sources).orderBy(desc(schema.sources.createdAt));
+  // Only rows with a real transcription job behind them are worth polling —
+  // seeded demo rows sit on "processing" with no job id.
+  const pendingTranscriptions = rows.filter(
+    (s) => s.status === "processing" && (s.meta as { assemblyId?: string } | null)?.assemblyId,
+  ).length;
+
   return (
+    <>
+    <CheckTranscriptionsButton pending={pendingTranscriptions} />
     <div className="overflow-hidden rounded-[var(--radius-card)] border border-border bg-surface shadow-[var(--shadow)]">
       <table className="w-full border-collapse text-[12.5px]">
         <thead>
@@ -228,6 +237,7 @@ async function SourcesTab() {
         </tbody>
       </table>
     </div>
+    </>
   );
 }
 
