@@ -4,8 +4,9 @@ import { revalidatePath } from "next/cache";
 import { and, count, eq, isNull } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { classifyItem } from "@/lib/ai/classify";
+import { extractFeedbackItems, SPLIT_THRESHOLD_CHARS } from "@/lib/ai/extract";
 import { currentIntervalMs, GeminiRateLimitError } from "@/lib/ai/gemini";
-import { guardAiRun, requireUser } from "@/lib/guard";
+import { guardAiRun, logAudit, requireUser } from "@/lib/guard";
 
 /** Vercel caps a function at 300s (Hobby cannot raise it), so stop well short
  *  and report what's left rather than being killed mid-run. */
@@ -19,6 +20,10 @@ export type AiRunResult = {
   processed: number;
   failed: number;
   remaining: number;
+  /** Long sources (transcripts, long emails) broken into atomic items. */
+  split?: number;
+  /** Atomic items produced by splitting those sources. */
+  extracted?: number;
   /** Set whenever anything went wrong — including partial failures. */
   error?: string;
   /** True when we ran out of time rather than out of items. */
@@ -72,8 +77,104 @@ export async function runAiAnalysis(): Promise<AiRunResult> {
     let timedOut = false;
     let rateLimited = false;
     let consecutiveThrottles = 0;
+    let split = 0;
+    let extracted = 0;
 
-    for (const it of items) {
+    /** Find-or-create a theme by title, keeping the local caches in step. */
+    const resolveTheme = async (title: string): Promise<string | null> => {
+      const t = title.trim();
+      if (!t || t.toLowerCase() === "new") return null;
+      const hit = themeByTitle.get(t.toLowerCase());
+      if (hit) return hit;
+      const [nt] = await db
+        .insert(schema.themes)
+        .values({ workspaceId: ws.id, title: t, isEmerging: true })
+        .returning({ id: schema.themes.id, title: schema.themes.title });
+      themeByTitle.set(nt.title.toLowerCase(), nt.id);
+      themeRows.push({ id: nt.id, title: nt.title });
+      return nt.id;
+    };
+
+    // ---- Pass 1: break long sources into atomic items ----------------------
+    // A 9-minute call transcript arrives as ONE item holding ~20 separate
+    // points; left whole it is useless to themes, dashboards and the roadmap
+    // (and classifyItem only ever saw its first 2000 characters).
+    const longOnes = items.filter((i) => i.quote.length > SPLIT_THRESHOLD_CHARS);
+
+    for (const parent of longOnes) {
+      if (Date.now() - started > TIME_BUDGET_MS - currentIntervalMs()) {
+        timedOut = true;
+        break;
+      }
+      try {
+        const found = await extractFeedbackItems(
+          parent.quote,
+          themeRows.map((t) => t.title),
+          areaNames,
+        );
+        consecutiveThrottles = 0;
+        if (!found.length) continue;
+
+        for (const f of found) {
+          const themeId = await resolveTheme(f.theme);
+          await db.insert(schema.feedbackItems).values({
+            workspaceId: ws.id,
+            sourceId: parent.sourceId,
+            quote: f.quote,
+            customer: parent.customer,
+            submitter: parent.submitter,
+            // Provenance is the whole point of splitting — keep who said it
+            // and when, so every item stays traceable to the recording.
+            speaker: f.speaker ?? parent.speaker,
+            timestampLabel: f.timestampLabel ?? parent.timestampLabel,
+            occurredAt: parent.occurredAt,
+            type: f.type,
+            sentiment: f.sentiment,
+            severity: f.severity,
+            confidence: f.confidence,
+            themeId,
+            reviewStatus: "needs_review",
+            reviewReason: f.confidence === "Low" ? "low confidence" : null,
+          });
+        }
+
+        // Retire the container. The full text stays on the source record, so
+        // nothing is lost and the split is auditable.
+        await db
+          .update(schema.feedbackItems)
+          .set({ reviewStatus: "discarded", reviewReason: `split into ${found.length} items` })
+          .where(eq(schema.feedbackItems.id, parent.id));
+
+        await logAudit({
+          workspaceId: ws.id,
+          actorId: user.id,
+          actorLabel: "AI",
+          action: "ai.split",
+          entityType: "feedback_item",
+          entityId: parent.id,
+          after: { extracted: found.length },
+        });
+
+        split++;
+        extracted += found.length;
+      } catch (e) {
+        if (e instanceof GeminiRateLimitError) {
+          rateLimited = true;
+          consecutiveThrottles++;
+          if (consecutiveThrottles >= 2) break;
+        } else {
+          failed++;
+          if (!firstError) firstError = (e as Error).message;
+        }
+      }
+    }
+
+    // ---- Pass 2: classify the remaining atomic items -----------------------
+    const shortOnes = rateLimited
+      ? []
+      : items.filter((i) => i.quote.length <= SPLIT_THRESHOLD_CHARS);
+
+    for (const it of shortOnes) {
       // Leave enough headroom for one more paced call before the cap.
       if (Date.now() - started > TIME_BUDGET_MS - currentIntervalMs()) {
         timedOut = true;
@@ -163,7 +264,16 @@ export async function runAiAnalysis(): Promise<AiRunResult> {
       error = firstError;
     }
 
-    return { processed, failed, remaining: Number(remaining), error, timedOut, rateLimited };
+    return {
+      processed,
+      failed,
+      remaining: Number(remaining),
+      split,
+      extracted,
+      error,
+      timedOut,
+      rateLimited,
+    };
   } catch (e) {
     return { processed: 0, failed: 0, remaining: 0, error: (e as Error).message };
   }

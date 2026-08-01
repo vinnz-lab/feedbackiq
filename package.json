@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:unit": "tsx scripts/gemini-test.ts && tsx scripts/parse-test.ts",
+    "test:unit": "tsx scripts/gemini-test.ts && tsx scripts/parse-test.ts && tsx scripts/extract-test.ts",
     "test:e2e": "node regress.mjs",
     "db:test": "PGLITE_DIR=./.pglite-test tsx scripts/db-setup.ts && PGLITE_DIR=./.pglite-test tsx scripts/seed-unclassified.ts 8"
   },

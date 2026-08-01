@@ -24,6 +24,10 @@ export function RunAiButton({ count }: { count: number }) {
             // 5-of-40 run look like a clean success and left the rest stuck on
             // "Awaiting AI" with no explanation.
             const parts: string[] = [];
+            if (r.split)
+              parts.push(
+                `✂ Split ${r.split} long source${r.split === 1 ? "" : "s"} into ${r.extracted} items`,
+              );
             if (r.processed) parts.push(`✓ Analysed ${r.processed}`);
             if (r.failed) parts.push(`${r.failed} failed`);
             if (r.remaining) parts.push(`${r.remaining} still waiting`);
