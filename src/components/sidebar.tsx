@@ -93,7 +93,7 @@ export function Sidebar({ reviewCount = 0 }: { reviewCount?: number }) {
           <Plus size={16} /> Ingest Feedback
         </Link>
         <div className="pt-2.5 text-center text-[10.5px] text-muted">
-          POC build · M0 skeleton
+          Preview build
         </div>
       </div>
     </nav>

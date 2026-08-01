@@ -18,7 +18,7 @@ const MODEL = process.env.GEMINI_MODEL || "gemini-flash-latest";
 /** Requests per minute to aim for. Free-tier Flash has historically been
  *  ~10–15 RPM; Google now shows your real limit in the AI Studio dashboard.
  *  Raise via GEMINI_RPM if your tier allows more. */
-const RPM = Math.max(1, Number(process.env.GEMINI_RPM) || 12);
+const RPM = Math.max(1, Number(process.env.GEMINI_RPM) || 10);
 const BASE_INTERVAL_MS = Math.ceil(60_000 / RPM);
 const MAX_INTERVAL_MS = 20_000;
 const MAX_ATTEMPTS = 3;

@@ -112,7 +112,7 @@ export function ReviewCard({
               )}
             </>
           ) : (
-            <span className="text-[12px] text-muted">Unclassified · awaiting AI analysis (M2b)</span>
+            <span className="text-[12px] text-muted">Not yet analysed by AI</span>
           )}
           {item.who && <span className="text-[12px] text-muted">· {item.who}</span>}
         </div>

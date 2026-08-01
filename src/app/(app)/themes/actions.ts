@@ -28,7 +28,8 @@ export async function regenerateSummaries(): Promise<{
     const themes = await db.select().from(schema.themes);
     let updated = 0;
     let failed = 0;
-    let throttled = 0;
+    let rateLimited = false;
+    let consecutiveThrottles = 0;
     let firstError: string | undefined;
     let skipped = 0;
 
@@ -54,11 +55,19 @@ export async function regenerateSummaries(): Promise<{
           await db.update(schema.themes).set({ summary }).where(eq(schema.themes.id, t.id));
           updated++;
         }
+        consecutiveThrottles = 0;
         // Pacing + retry are handled centrally in lib/ai/gemini.ts.
       } catch (e) {
-        failed++;
-        if (e instanceof GeminiRateLimitError) throttled++;
-        if (!firstError) firstError = (e as Error).message;
+        if (e instanceof GeminiRateLimitError) {
+          // Same circuit breaker as the classify run: once the shared quota is
+          // gone, continuing only burns time on calls that cannot succeed.
+          rateLimited = true;
+          consecutiveThrottles++;
+          if (consecutiveThrottles >= 2) break;
+        } else {
+          failed++;
+          if (!firstError) firstError = (e as Error).message;
+        }
       }
     }
 
@@ -66,13 +75,12 @@ export async function regenerateSummaries(): Promise<{
     revalidatePath("/dashboard");
 
     let error: string | undefined;
-    if (failed > 0) {
-      error =
-        throttled >= failed
-          ? "hit the Gemini free-tier rate limit — wait a minute, then run again."
-          : firstError;
+    if (rateLimited) {
+      error = "reached the Gemini free-tier rate limit. Wait about a minute, then run again.";
+    } else if (failed > 0) {
+      error = firstError;
     } else if (skipped > 0) {
-      error = `Ran out of time with ${skipped} theme${skipped === 1 ? "" : "s"} left — run again to finish.`;
+      error = `ran out of time with ${skipped} theme${skipped === 1 ? "" : "s"} left — run again to finish.`;
     }
 
     return { updated, failed, error };
