@@ -5,6 +5,17 @@ import { Topbar } from "@/components/topbar";
 import { getCurrentUser, initials, ROLE_LABEL } from "@/lib/auth";
 import { getDb, schema } from "@/db";
 
+/**
+ * Never prerender anything behind the auth gate.
+ *
+ * Without this, whether the layout counts as dynamic depends on which auth
+ * environment variables happen to exist at BUILD time: with none set, the gate
+ * returns early before reading cookies, Next.js decides the page is static and
+ * prerenders it — then a real request reads cookies and the page 500s with
+ * DYNAMIC_SERVER_USAGE. The gate must run on every request, always.
+ */
+export const dynamic = "force-dynamic";
+
 export default async function AppLayout({
   children,
 }: {
