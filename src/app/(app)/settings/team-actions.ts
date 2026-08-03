@@ -1,14 +1,21 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { sql } from "drizzle-orm";
+import { count, eq, sql } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { requireUser } from "@/lib/guard";
 import { createSupabaseAdminClient, isAdminConfigured } from "@/lib/supabase/admin";
 import { authMode } from "@/lib/supabase/env";
 import type { RoleT } from "@/db/schema";
 
-export type CreateUserState = { error?: string; ok?: string };
+export type CreateUserState = {
+  error?: string;
+  ok?: string;
+  /** Returned on success so the owner can hand them straight to the tester. */
+  credentials?: { email: string; password: string };
+};
+
+export type RemoveUserState = { error?: string; ok?: string };
 
 const ROLES = ["owner", "contributor", "executive", "engineer"];
 
@@ -68,7 +75,74 @@ export async function createTeamMember(
     });
 
     revalidatePath("/settings");
-    return { ok: `${name} can now sign in with ${email}.` };
+    return {
+      ok: `${name} can now sign in.`,
+      credentials: { email, password },
+    };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}
+
+/**
+ * Revokes someone's access.
+ *
+ * Removes both records: the Supabase identity (so the password stops working
+ * everywhere) and our users row (which is what actually authorises them).
+ * Deleting only ours would leave a usable login for a workspace they can no
+ * longer enter; deleting only theirs would leave a dangling member.
+ *
+ * Guards against the two ways this could lock the workspace: you cannot remove
+ * yourself, and you cannot remove the last owner.
+ */
+export async function removeTeamMember(
+  _prev: RemoveUserState,
+  formData: FormData,
+): Promise<RemoveUserState> {
+  try {
+    const actor = await requireUser();
+    if (actor.role !== "owner") return { error: "Only the workspace owner can remove people." };
+
+    const id = String(formData.get("id") ?? "");
+    if (!id) return { error: "No person selected." };
+    if (id === actor.id) return { error: "You can't remove your own access." };
+
+    const db = await getDb();
+    const [target] = await db
+      .select()
+      .from(schema.users)
+      .where(eq(schema.users.id, id))
+      .limit(1);
+    if (!target) return { error: "That person is no longer in this workspace." };
+
+    if (target.role === "owner") {
+      const [{ n }] = await db
+        .select({ n: count() })
+        .from(schema.users)
+        .where(eq(schema.users.role, "owner"));
+      if (Number(n) <= 1) return { error: "You can't remove the last owner." };
+    }
+
+    // Best-effort on the Supabase side: if the identity is already gone, the
+    // workspace row should still be removed rather than leaving a ghost member.
+    let authNote = "";
+    if (authMode() === "supabase" && isAdminConfigured() && target.email) {
+      try {
+        const admin = createSupabaseAdminClient();
+        const { data } = await admin.auth.admin.listUsers();
+        const match = data?.users?.find(
+          (u) => (u.email ?? "").toLowerCase() === target.email.toLowerCase(),
+        );
+        if (match) await admin.auth.admin.deleteUser(match.id);
+      } catch (e) {
+        authNote = ` (their sign-in may still exist: ${(e as Error).message})`;
+      }
+    }
+
+    await db.delete(schema.users).where(eq(schema.users.id, id));
+
+    revalidatePath("/settings");
+    return { ok: `Removed ${target.name}.${authNote}` };
   } catch (e) {
     return { error: (e as Error).message };
   }

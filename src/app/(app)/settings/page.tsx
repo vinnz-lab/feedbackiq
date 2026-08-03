@@ -2,6 +2,7 @@ import { getCurrentUser, listUsers, ROLE_LABEL, initials } from "@/lib/auth";
 import { authMode } from "@/lib/supabase/env";
 import { isAdminConfigured } from "@/lib/supabase/admin";
 import { AddTeamMember } from "./add-team-member";
+import { RemoveMember } from "./remove-member";
 
 export const dynamic = "force-dynamic";
 
@@ -66,6 +67,7 @@ export default async function SettingsPage() {
               >
                 {ROLE_LABEL[u.role] ?? u.role}
               </span>
+              {isOwner && u.id !== me?.id && <RemoveMember id={u.id} name={u.name} />}
             </div>
           ))}
         </div>
