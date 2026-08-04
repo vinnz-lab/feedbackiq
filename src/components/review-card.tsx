@@ -21,6 +21,10 @@ export type ReviewItem = {
   confidence: string | null;
   themeTitle: string | null;
   who: string | null;
+  /** Provenance — who said it, when in the recording, or which sheet row. */
+  speaker?: string | null;
+  timestampLabel?: string | null;
+  rowRef?: string | null;
 };
 
 const TYPES: FeedbackTypeT[] = ["Feature", "Bug", "UX", "Question", "Praise"];
@@ -90,6 +94,19 @@ export function ReviewCard({
         >
           {c.label}
         </span>
+        {/* Provenance: the point of splitting a recording is being able to say
+            exactly who said this and when, so it belongs next to the quote. */}
+        {(item.speaker || item.timestampLabel || item.rowRef) && (
+          <span
+            className="inline-flex items-center gap-1 rounded-[var(--radius-pill)] px-2 py-0.5 font-mono text-[11px]"
+            style={{ background: "var(--indigo-soft)", color: "var(--indigo)" }}
+          >
+            {item.speaker && <span>{item.speaker}</span>}
+            {item.speaker && item.timestampLabel && <span>·</span>}
+            {item.timestampLabel && <span>{item.timestampLabel}</span>}
+            {!item.speaker && !item.timestampLabel && item.rowRef && <span>{item.rowRef}</span>}
+          </span>
+        )}
         <span className="ml-auto text-[11.5px] text-muted">Confidence: {item.confidence ?? "—"}</span>
       </div>
 

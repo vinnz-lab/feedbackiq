@@ -68,7 +68,7 @@ Rules:
 - sentiment: exactly one of ${SENTS.join(", ")}
 - severity: exactly one of ${PRIOS.join(", ")} (how urgent/impactful)
 - confidence: your confidence in this entry, one of ${CONFS.join(", ")}
-- theme: the SINGLE best match from the existing list, OR — if none fits well — a concise NEW theme title in Title Case (3–5 words). Do NOT return the literal word "NEW".
+- theme: STRONGLY PREFER an existing theme from the list below — reuse is the whole point, since a theme mentioned by ten customers is what tells the team it matters. Only invent a new theme when the point is genuinely about a different part of the product, not merely worded differently. Group related complaints together (e.g. slow loading and slow filtering are both performance). If you do invent one, use a concise Title Case title of 3–5 words, and never return the literal word "NEW".
 
 Existing themes: ${themeTitles.length ? themeTitles.map((t) => `"${t}"`).join(", ") : "(none yet)"}
 Known product areas for context: ${areas.join(", ") || "(none)"}

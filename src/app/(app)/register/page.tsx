@@ -106,6 +106,9 @@ async function ItemsTab() {
       type: fi.type,
       sentiment: fi.sentiment,
       confidence: fi.confidence,
+      speaker: fi.speaker,
+      timestampLabel: fi.timestampLabel,
+      rowRef: fi.rowRef,
       sourceKind: schema.sources.kind,
       sourceName: schema.sources.filename,
       themeTitle: schema.themes.title,
@@ -127,7 +130,15 @@ async function ItemsTab() {
         <tbody>
           {rows.map((r) => (
             <tr key={r.id} className="border-t border-border align-top hover:bg-hover">
-              <Td><span className="whitespace-nowrap text-muted">{KIND_ICON[r.sourceKind ?? ""] ?? "•"} {r.sourceName ?? "—"}</span></Td>
+              <Td>
+                <span className="whitespace-nowrap text-muted">{KIND_ICON[r.sourceKind ?? ""] ?? "•"} {r.sourceName ?? "—"}</span>
+                {/* Where inside the source this came from — the citation trail. */}
+                {(r.speaker || r.timestampLabel || r.rowRef) && (
+                  <div className="whitespace-nowrap font-mono text-[10.5px] text-indigo">
+                    {[r.speaker, r.timestampLabel, r.rowRef].filter(Boolean).join(" · ")}
+                  </div>
+                )}
+              </Td>
               <Td className="whitespace-nowrap">{r.customer ?? r.submitter ?? "—"}</Td>
               <Td className="max-w-[340px]">“{r.quote}”</Td>
               <Td className="whitespace-nowrap font-medium text-indigo">{r.themeTitle ?? "—"}</Td>
@@ -151,6 +162,9 @@ async function ReviewTab() {
       quote: fi.quote,
       customer: fi.customer,
       submitter: fi.submitter,
+      speaker: fi.speaker,
+      timestampLabel: fi.timestampLabel,
+      rowRef: fi.rowRef,
       reason: fi.reviewReason,
       type: fi.type,
       sentiment: fi.sentiment,
@@ -194,6 +208,9 @@ async function ReviewTab() {
     confidence: r.confidence,
     themeTitle: r.themeTitle,
     who: r.customer ?? r.submitter,
+    speaker: r.speaker,
+    timestampLabel: r.timestampLabel,
+    rowRef: r.rowRef,
   }));
 
   return <ReviewQueue items={items} themes={themeList} unclassified={unclassified} />;
