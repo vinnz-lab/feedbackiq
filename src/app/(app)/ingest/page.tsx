@@ -6,7 +6,14 @@ import { UploadCloud, X, FileText } from "lucide-react";
 
 type Summary = {
   totalItems: number;
-  sources: { filename: string; kind: string; status: string; items: number; note?: string }[];
+  sources: {
+    filename: string;
+    kind: string;
+    status: string;
+    items: number;
+    note?: string;
+    duplicate?: boolean;
+  }[];
 };
 
 const ACCEPT = ".eml,.txt,.vtt,.docx,.csv,.xlsx,.xls,.mp3,.mp4,.m4a,.wav";
@@ -23,6 +30,7 @@ export default function IngestPage() {
   const [result, setResult] = useState<Summary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [force, setForce] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const addFiles = (list: FileList | null) => {
@@ -51,6 +59,7 @@ export default function IngestPage() {
       const fd = new FormData();
       files.forEach((f) => fd.append("files", f));
       if (paste.trim()) fd.append("paste", paste);
+      if (force) fd.append("force", "true");
       const res = await fetch("/api/ingest", { method: "POST", body: fd });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Ingestion failed");
@@ -72,13 +81,20 @@ export default function IngestPage() {
   const canSubmit = (files.length > 0 || paste.trim().length > 0) && !busy;
 
   if (result) {
+    const dupes = result.sources.filter((s) => s.duplicate).length;
     return (
       <div className="mx-auto max-w-2xl">
-        <h1 className="text-[30px] font-bold leading-9 tracking-tight">Ingested ✓</h1>
+        <h1 className="text-[30px] font-bold leading-9 tracking-tight">
+          {result.totalItems > 0 ? "Ingested ✓" : "Nothing new to add"}
+        </h1>
         <p className="mt-1 mb-6 text-[13px] text-muted">
-          {result.totalItems} feedback item{result.totalItems === 1 ? "" : "s"} captured from{" "}
-          {result.sources.length} source{result.sources.length === 1 ? "" : "s"} — now in the
-          Needs-review queue, awaiting AI classification (M2).
+          {result.totalItems} feedback item{result.totalItems === 1 ? "" : "s"} captured
+          {dupes > 0 && (
+            <>
+              {" "}· <b className="text-amber">{dupes} already imported and skipped</b>
+            </>
+          )}
+          . Run AI analysis in the Register to classify them.
         </p>
         <div className="overflow-hidden rounded-[var(--radius-card)] border border-border bg-surface shadow-[var(--shadow)]">
           {result.sources.map((s, i) => (
@@ -89,16 +105,18 @@ export default function IngestPage() {
                 {s.note && <div className="text-[11.5px] text-muted">{s.note}</div>}
               </div>
               <span
-                className="rounded-[var(--radius-pill)] px-2 py-0.5 text-[11.5px] font-semibold"
+                className="whitespace-nowrap rounded-[var(--radius-pill)] px-2 py-0.5 text-[11.5px] font-semibold"
                 style={
-                  s.status === "processed"
-                    ? { background: "var(--emerald-soft)", color: "var(--emerald)" }
-                    : s.status === "failed"
-                      ? { background: "var(--rose-soft)", color: "var(--rose)" }
-                      : { background: "var(--amber-soft)", color: "var(--amber)" }
+                  s.duplicate
+                    ? { background: "var(--amber-soft)", color: "var(--amber)" }
+                    : s.status === "processed"
+                      ? { background: "var(--emerald-soft)", color: "var(--emerald)" }
+                      : s.status === "failed"
+                        ? { background: "var(--rose-soft)", color: "var(--rose)" }
+                        : { background: "var(--amber-soft)", color: "var(--amber)" }
                 }
               >
-                {s.items} item{s.items === 1 ? "" : "s"}
+                {s.duplicate ? "duplicate" : `${s.items} item${s.items === 1 ? "" : "s"}`}
               </span>
             </div>
           ))}
@@ -116,6 +134,18 @@ export default function IngestPage() {
           >
             Ingest more
           </button>
+          {dupes > 0 && (
+            <button
+              onClick={() => {
+                setForce(true);
+                setResult(null);
+              }}
+              className="rounded-[var(--radius-btn)] border border-border bg-surface px-4 py-2 text-[13px] font-semibold text-amber hover:bg-hover"
+              title="Only needed if you deliberately want a second copy"
+            >
+              Import the duplicate anyway
+            </button>
+          )}
         </div>
       </div>
     );
@@ -153,7 +183,7 @@ export default function IngestPage() {
           📧 .eml · 📊 .csv .xlsx · 🎙 .vtt .txt .docx · 🎬 .mp3 .mp4 .m4a .wav
         </div>
         <div className="text-[11px] text-muted opacity-75">
-          Recordings are stored now and transcribed in M2.
+          Recordings are transcribed with speaker labels, then split into individual points.
         </div>
         <input
           ref={inputRef}
