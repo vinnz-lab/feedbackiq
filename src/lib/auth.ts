@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { eq, sql } from "drizzle-orm";
 import { getDb, schema } from "@/db";
@@ -87,21 +88,41 @@ async function getDevUser(): Promise<AppUser | null> {
 /**
  * The signed-in user, or null.
  *
- * With Supabase Auth active, the Supabase account only establishes WHO you are.
- * Authorisation still requires a matching row in our own users table, which is
- * what makes the app invite-only: someone who somehow obtains a Supabase
- * account for this project still cannot get in without being invited here.
- * Linking by email also means no database migration was needed to adopt auth.
+ * Wrapped in cache() so it runs ONCE per request no matter how many components
+ * ask: the layout and the page both need the current user, and without this
+ * each call repeated the token check and the database lookup.
+ *
+ * Supabase establishes WHO you are; a matching row in our users table is what
+ * grants access. That is what keeps the app invite-only, and linking by email
+ * is why adopting auth needed no database migration.
  */
-export async function getCurrentUser(): Promise<AppUser | null> {
+export const getCurrentUser = cache(async (): Promise<AppUser | null> => {
   const mode = authMode();
 
   if (mode === "supabase") {
     try {
       const supabase = await createSupabaseServerClient();
-      const { data, error } = await supabase.auth.getUser();
-      const email = data?.user?.email;
-      if (error || !email) return null;
+
+      // getClaims verifies the JWT locally against a cached key set, so it
+      // costs no network round-trip. getUser asks the Auth server on every
+      // call, which on a page that renders several components meant several
+      // cross-region requests before anything could be displayed. Falls back
+      // to getUser if the token can't be verified locally.
+      let email: string | null = null;
+      try {
+        const { data } = await supabase.auth.getClaims();
+        const claims = (data as { claims?: Record<string, unknown> } | null)?.claims;
+        if (typeof claims?.email === "string") email = claims.email;
+      } catch {
+        // fall through to the authoritative check
+      }
+
+      if (!email) {
+        const { data, error } = await supabase.auth.getUser();
+        if (error || !data?.user?.email) return null;
+        email = data.user.email;
+      }
+
       return (await findUserByEmail(email)) ?? (await bootstrapOwnerIfNeeded(email));
     } catch {
       return null;
@@ -111,20 +132,7 @@ export async function getCurrentUser(): Promise<AppUser | null> {
   if (mode === "dev") return getDevUser();
 
   return null; // unconfigured: fail closed
-}
-
-/** True when the signed-in Supabase account has no invitation here. */
-export async function hasOrphanedSession(): Promise<boolean> {
-  if (authMode() !== "supabase") return false;
-  try {
-    const supabase = await createSupabaseServerClient();
-    const { data } = await supabase.auth.getUser();
-    if (!data?.user?.email) return false;
-    return (await findUserByEmail(data.user.email)) === null;
-  } catch {
-    return false;
-  }
-}
+});
 
 export function initials(name: string) {
   return name
