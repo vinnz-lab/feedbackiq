@@ -34,3 +34,14 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Hosting region
+
+```
+Why arn1:
+  Supabase Postgres lives in AWS eu-north-1 (Stockholm). Functions were running
+  in iad1 (Washington DC), so every query crossed the Atlantic — roughly 180ms
+  round trip, several times per page render.
+  arn1 IS eu-north-1, so the database is now a few milliseconds away.
+  Hobby allows exactly one region; a second entry fails the deploy before build.
+```
