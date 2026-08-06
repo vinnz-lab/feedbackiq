@@ -1,67 +1,96 @@
 /**
- * Tests content fingerprinting for duplicate detection.
+ * Tests duplicate detection.
  *
- * Why this matters: a theme's mention count drives the roadmap score, so
- * importing the same transcript twice makes every point in it look twice as
- * corroborated and silently reorders the roadmap around phantom demand.
+ * Written against the REQUIREMENT rather than the implementation. The previous
+ * version tested the string path for normalisation and the buffer path only for
+ * exact equality — which is precisely what the code happened to do, so it
+ * passed while files uploaded twice with different line endings still slipped
+ * through. Every claim made to the user is asserted here instead.
  *
  * Run: npx tsx scripts/fingerprint-test.ts
  */
 async function main() {
-  const { fingerprint, shortFingerprint } = await import("../src/lib/ingest/fingerprint.ts");
+  const { fingerprintText, fingerprintBytes, quoteKey, normalise, MIN_DEDUPE_CHARS } = await import(
+    "../src/lib/ingest/fingerprint.ts"
+  );
 
   const pass: string[] = [];
   const fail: string[] = [];
   const check = (n: string, ok: boolean, d = "") => (ok ? pass : fail).push(`${n}${d ? " — " + d : ""}`);
 
-  const transcript = "[00:00:19] Raj Patel: The board takes ten seconds to load.";
+  const transcript = "[00:00:19] Raj Patel: The board takes ten seconds to load once we pass 200 cards.";
 
-  // --- identical content -------------------------------------------------
-  check("identical text matches", fingerprint(transcript) === fingerprint(transcript));
-
-  // --- a renamed file is still the same content --------------------------
-  // (filename never enters the hash, which is the whole point)
-  const asBuffer = Buffer.from(transcript, "utf8");
-  check("same bytes match regardless of filename", fingerprint(asBuffer) === fingerprint(asBuffer));
-
-  // --- trivial reformatting must NOT defeat detection --------------------
+  // --- the same content must always match, however it is presented ---------
+  check("identical text matches", fingerprintText(transcript) === fingerprintText(transcript));
   check(
-    "differing line endings still match",
-    fingerprint("line one\nline two") === fingerprint("line one\r\nline two"),
+    "differing line endings match",
+    fingerprintText("line one\nline two") === fingerprintText("line one\r\nline two"),
   );
   check(
-    "trailing whitespace still matches",
-    fingerprint(transcript) === fingerprint(transcript + "\n\n   "),
+    "trailing whitespace matches",
+    fingerprintText(transcript) === fingerprintText(transcript + "\n\n   "),
   );
+  check("collapsed inner whitespace matches", fingerprintText("a  b   c") === fingerprintText("a b c"),);
   check(
-    "collapsed inner whitespace still matches",
-    fingerprint("a  b   c") === fingerprint("a b c"),
+    "case differences match",
+    fingerprintText("Dark Mode Please") === fingerprintText("dark mode please"),
   );
+  // A file read as bytes then decoded must equal the same text pasted in.
   check(
-    "case differences still match",
-    fingerprint("Dark Mode Please") === fingerprint("dark mode please"),
+    "same content via file or paste matches",
+    fingerprintText(Buffer.from(transcript, "utf8").toString("utf8")) === fingerprintText(transcript),
   );
 
-  // --- genuinely different content must NOT match ------------------------
+  // --- genuinely different content must not match --------------------------
   check(
-    "different feedback does not match",
-    fingerprint(transcript) !== fingerprint(transcript + " And exports time out."),
+    "different feedback differs",
+    fingerprintText(transcript) !== fingerprintText(transcript + " And exports time out."),
   );
-  check("empty vs content differ", fingerprint("") !== fingerprint(transcript));
   check(
     "a single changed word is detected",
-    fingerprint("takes ten seconds") !== fingerprint("takes nine seconds"),
+    fingerprintText("takes ten seconds") !== fingerprintText("takes nine seconds"),
   );
+  check("empty differs from content", fingerprintText("") !== fingerprintText(transcript));
 
-  // --- shape --------------------------------------------------------------
-  check("hash is hex sha256 (64 chars)", /^[0-9a-f]{64}$/.test(fingerprint(transcript)));
-  check("short form is 12 chars", shortFingerprint(fingerprint(transcript)).length === 12);
-
-  // --- binary (audio) files ----------------------------------------------
+  // --- binary sources (audio) ---------------------------------------------
   const audioA = Buffer.from([0x49, 0x44, 0x33, 0x01, 0x02, 0x03]);
   const audioB = Buffer.from([0x49, 0x44, 0x33, 0x01, 0x02, 0x04]);
-  check("identical audio bytes match", fingerprint(audioA) === fingerprint(Buffer.from(audioA)));
-  check("differing audio bytes do not match", fingerprint(audioA) !== fingerprint(audioB));
+  check("identical audio matches", fingerprintBytes(audioA) === fingerprintBytes(Buffer.from(audioA)));
+  check("different audio differs", fingerprintBytes(audioA) !== fingerprintBytes(audioB));
+
+  // --- back-fill: a hash rebuilt from stored text must match a re-upload ---
+  // This is what lets sources imported before fingerprinting existed still be
+  // recognised — the gap that let a duplicate through in production.
+  const storedRawText = normalise(transcript); // how it is saved on the source
+  check(
+    "hash rebuilt from stored text matches a fresh upload",
+    fingerprintText(storedRawText) === fingerprintText(transcript),
+    "back-fill for pre-existing sources",
+  );
+
+  // --- quote keys: the item-level safety net -------------------------------
+  const longQuote = "The dashboards are very rigid and I cannot put two metrics on one chart at all.";
+  check("long quotes produce a key", quoteKey(longQuote) !== null);
+  check(
+    "identical long quotes share a key",
+    quoteKey(longQuote) === quoteKey("  " + longQuote.toUpperCase() + " "),
+  );
+  check(
+    "different long quotes differ",
+    quoteKey(longQuote) !== quoteKey(longQuote.replace("rigid", "flexible")),
+  );
+
+  // Short generic phrases must NOT be deduped: two customers independently
+  // asking for dark mode is real corroboration, not a duplicate.
+  check("short phrases are not deduped", quoteKey("add dark mode") === null);
+  check(
+    "the threshold is meaningful",
+    MIN_DEDUPE_CHARS >= 20 && MIN_DEDUPE_CHARS <= 80,
+    `${MIN_DEDUPE_CHARS} chars`,
+  );
+
+  // --- shape ---------------------------------------------------------------
+  check("hash is hex sha256", /^[0-9a-f]{64}$/.test(fingerprintText(transcript)));
 
   console.log("\nPASS:");
   pass.forEach((p) => console.log("  ✓ " + p));

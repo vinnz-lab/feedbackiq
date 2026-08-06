@@ -1,7 +1,11 @@
 import { eq } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { parseFile, parsePaste, type ParsedSource } from "@/lib/ingest/parse";
-import { fingerprint } from "@/lib/ingest/fingerprint";
+import {
+  fingerprintBytes,
+  fingerprintText,
+  quoteKey,
+} from "@/lib/ingest/fingerprint";
 import { getCurrentUser } from "@/lib/auth";
 import { logAudit } from "@/lib/guard";
 import {
@@ -20,6 +24,12 @@ export const dynamic = "force-dynamic";
  *  any of this code runs — so a larger cap here would be a lie. Kept slightly
  *  under to leave room for multipart overhead. */
 const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
+
+/** The text that identifies a source. Spreadsheets carry no rawText, so their
+ *  extracted rows stand in — still content-based, so a renamed copy matches. */
+function sourceText(p: ParsedSource): string {
+  return p.rawText ?? p.items.map((i) => i.quote).join("\n");
+}
 
 /** A parsed source plus, for audio, the bytes we still need to send onward. */
 type Incoming = { parsed: ParsedSource; audio?: Buffer; hash: string };
@@ -46,8 +56,25 @@ async function persist(incoming: Incoming[], force: boolean) {
     .where(eq(schema.sources.workspaceId, ws.id));
   const seen = new Map<string, { filename: string; createdAt: Date }>();
   for (const e of existing) {
-    const h = (e.meta as { contentHash?: string } | null)?.contentHash;
+    const meta = e.meta as { contentHash?: string; rawText?: string } | null;
+    // Sources imported before fingerprinting existed have no stored hash.
+    // Reconstruct one from their saved text so they still count as "already
+    // imported" — otherwise the feature only protects data created after it
+    // shipped, which is exactly how a duplicate slipped through.
+    const h = meta?.contentHash ?? (meta?.rawText ? fingerprintText(meta.rawText) : null);
     if (h && !seen.has(h)) seen.set(h, { filename: e.filename, createdAt: e.createdAt });
+  }
+
+  // Every quote already in the workspace, so re-imported feedback is skipped
+  // even when the file itself differs (a weekly export that gained rows).
+  const priorQuotes = await db
+    .select({ quote: schema.feedbackItems.quote })
+    .from(schema.feedbackItems)
+    .where(eq(schema.feedbackItems.workspaceId, ws.id));
+  const knownQuotes = new Set<string>();
+  for (const r of priorQuotes) {
+    const k = quoteKey(r.quote);
+    if (k) knownQuotes.add(k);
   }
 
   for (const { parsed: s, audio, hash } of incoming) {
@@ -95,6 +122,20 @@ async function persist(incoming: Incoming[], force: boolean) {
       }
     }
 
+    // Drop individual items already present. Without this, a source whose
+    // fingerprint differs (or predates fingerprinting) still re-imports every
+    // point inside it and doubles the demand behind each theme.
+    const fresh = force
+      ? s.items
+      : s.items.filter((it) => {
+          const k = quoteKey(it.quote);
+          if (!k) return true; // too short to judge — keep it
+          if (knownQuotes.has(k)) return false;
+          knownQuotes.add(k);
+          return true;
+        });
+    const skippedItems = s.items.length - fresh.length;
+
     const [src] = await db
       .insert(schema.sources)
       .values({
@@ -102,16 +143,16 @@ async function persist(incoming: Incoming[], force: boolean) {
         kind: s.kind,
         filename: s.filename,
         status,
-        itemCount: s.items.length,
+        itemCount: fresh.length,
         note,
         autoIngested: false,
         meta,
       })
       .returning();
 
-    if (s.items.length) {
+    if (fresh.length) {
       await db.insert(schema.feedbackItems).values(
-        s.items.map((it) => ({
+        fresh.map((it) => ({
           workspaceId: ws.id,
           sourceId: src.id,
           quote: it.quote,
@@ -127,13 +168,17 @@ async function persist(incoming: Incoming[], force: boolean) {
       );
     }
 
-    totalItems += s.items.length;
+    totalItems += fresh.length;
     summary.push({
       filename: s.filename,
       kind: s.kind,
       status,
-      items: s.items.length,
-      note: note ?? undefined,
+      items: fresh.length,
+      duplicate: fresh.length === 0 && skippedItems > 0,
+      note:
+        skippedItems > 0
+          ? `${skippedItems} of ${s.items.length} already imported and skipped.${note ? " " + note : ""}`
+          : (note ?? undefined),
     });
   }
   return { totalItems, sources: summary };
@@ -169,13 +214,16 @@ export async function POST(request: Request) {
           incoming.push({
             parsed,
             audio: parsed.kind === "recording" ? buf : undefined,
-            hash: fingerprint(buf),
+            hash:
+              parsed.kind === "recording"
+                ? fingerprintBytes(buf)
+                : fingerprintText(sourceText(parsed)),
           });
         }
       }
       const paste = form.get("paste");
       if (typeof paste === "string" && paste.trim()) {
-        incoming.push({ parsed: parsePaste(paste), hash: fingerprint(paste) });
+        incoming.push({ parsed: parsePaste(paste), hash: fingerprintText(paste) });
       }
     } else {
       const body = (await request.json().catch(() => ({}))) as {
@@ -184,7 +232,7 @@ export async function POST(request: Request) {
       };
       if (body.force) force = true;
       if (body.paste && body.paste.trim()) {
-        incoming.push({ parsed: parsePaste(body.paste), hash: fingerprint(body.paste) });
+        incoming.push({ parsed: parsePaste(body.paste), hash: fingerprintText(body.paste) });
       }
     }
 
