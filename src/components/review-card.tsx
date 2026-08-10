@@ -59,7 +59,8 @@ export function ReviewCard({
   themes: { id: string; title: string }[];
   selectable?: boolean;
   selected?: boolean;
-  onToggle?: () => void;
+  /** Receives whether shift was held, so a range can be selected. */
+  onToggle?: (shiftKey: boolean) => void;
 }) {
   const [pending, start] = useTransition();
   const [editing, setEditing] = useState(false);
@@ -77,8 +78,10 @@ export function ReviewCard({
           <input
             type="checkbox"
             checked={selected}
-            onChange={onToggle}
-            className="h-4 w-4 accent-[var(--indigo)]"
+            // onClick carries the shift key; onChange keeps React controlled.
+            onChange={() => {}}
+            onClick={(e) => onToggle?.(e.shiftKey)}
+            className="h-4 w-4 cursor-pointer accent-[var(--indigo)]"
             aria-label="Select item"
           />
         )}

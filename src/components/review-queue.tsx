@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { ReviewCard, type ReviewItem } from "@/components/review-card";
 import { RunAiButton } from "@/components/run-ai-button";
 import { bulkApprove, bulkDiscard } from "@/app/(app)/register/actions";
@@ -16,40 +16,95 @@ export function ReviewQueue({
 }) {
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [pending, start] = useTransition();
+  /** Anchor for shift-click range selection. */
+  const lastIndex = useRef<number | null>(null);
 
-  const toggle = (id: string) =>
-    setSel((prev) => {
-      const n = new Set(prev);
-      if (n.has(id)) n.delete(id);
-      else n.add(id);
-      return n;
-    });
-  const clear = () => setSel(new Set());
+  const clear = () => {
+    setSel(new Set());
+    lastIndex.current = null;
+  };
+  const selectAll = () => setSel(new Set(items.map((i) => i.id)));
+
+  /**
+   * Toggling one item, or — with shift held — everything between this item and
+   * the previous click. A batch arriving from one upload lands as a contiguous
+   * run, so a range select is what actually clears it in two clicks.
+   */
+  const toggle = (index: number, shiftKey: boolean) => {
+    // Computed outside setState on purpose. An earlier version read the anchor
+    // ref inside the updater and then reassigned the ref straight afterwards —
+    // React may invoke an updater more than once, so the second pass saw the
+    // new anchor, took the single-toggle branch, and undid part of the range.
+    const anchor = lastIndex.current;
+    const next = new Set(sel);
+
+    if (shiftKey && anchor !== null && anchor !== index) {
+      const [from, to] = anchor < index ? [anchor, index] : [index, anchor];
+      // Apply one consistent action across the run, based on the clicked item.
+      const turningOn = !sel.has(items[index].id);
+      for (let i = from; i <= to; i++) {
+        if (turningOn) next.add(items[i].id);
+        else next.delete(items[i].id);
+      }
+    } else {
+      const id = items[index].id;
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+    }
+
+    lastIndex.current = index;
+    setSel(next);
+  };
+
   const allSelected = items.length > 0 && sel.size === items.length;
+  const someSelected = sel.size > 0 && !allSelected;
   const ids = [...sel];
 
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <RunAiButton count={unclassified} />
-        {items.length > 0 && (
-          <button
-            onClick={() => (allSelected ? clear() : setSel(new Set(items.map((i) => i.id))))}
-            className="text-[12px] font-semibold text-muted hover:text-fg"
-          >
-            {allSelected ? "Clear selection" : "Select all"}
-          </button>
-        )}
       </div>
 
-      {items.map((it) => (
+      {/* Selection toolbar. Sticky because the queue can run to dozens of
+          items, and a control you have scrolled past may as well not exist —
+          which is exactly how 40 rows got discarded one at a time. */}
+      {items.length > 0 && (
+        <div className="sticky top-0 z-20 -mx-1 flex flex-wrap items-center gap-3 rounded-[10px] border border-border bg-surface px-3 py-2 shadow-[var(--shadow)]">
+          <label className="flex cursor-pointer items-center gap-2 text-[12.5px] font-semibold">
+            <input
+              type="checkbox"
+              checked={allSelected}
+              ref={(el) => {
+                if (el) el.indeterminate = someSelected;
+              }}
+              onChange={() => (allSelected ? clear() : selectAll())}
+              className="h-4 w-4 cursor-pointer accent-[var(--indigo)]"
+            />
+            {allSelected ? "Clear selection" : `Select all ${items.length}`}
+          </label>
+
+          {sel.size > 0 && (
+            <span className="text-[12px] text-muted">
+              {sel.size} of {items.length} selected
+            </span>
+          )}
+
+          <span className="ml-auto hidden text-[11.5px] text-muted sm:block">
+            Tip: hold <kbd className="rounded border border-border px-1 font-mono">Shift</kbd> to
+            select a range
+          </span>
+        </div>
+      )}
+
+      {items.map((it, i) => (
         <ReviewCard
           key={it.id}
           item={it}
           themes={themes}
           selectable
           selected={sel.has(it.id)}
-          onToggle={() => toggle(it.id)}
+          onToggle={(shiftKey) => toggle(i, shiftKey)}
         />
       ))}
 
