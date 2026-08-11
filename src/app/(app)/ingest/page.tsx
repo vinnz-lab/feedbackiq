@@ -30,7 +30,6 @@ export default function IngestPage() {
   const [result, setResult] = useState<Summary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
-  const [force, setForce] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const addFiles = (list: FileList | null) => {
@@ -52,14 +51,18 @@ export default function IngestPage() {
   };
   const removeFile = (i: number) => setFiles((prev) => prev.filter((_, k) => k !== i));
 
-  const submit = async () => {
+  /**
+   * `force` is passed explicitly rather than read from state: a state update
+   * wouldn't be visible to a send fired in the same tick.
+   */
+  const send = async (payloadFiles: File[], payloadPaste: string, forceFlag: boolean) => {
     setBusy(true);
     setError(null);
     try {
       const fd = new FormData();
-      files.forEach((f) => fd.append("files", f));
-      if (paste.trim()) fd.append("paste", paste);
-      if (force) fd.append("force", "true");
+      payloadFiles.forEach((f) => fd.append("files", f));
+      if (payloadPaste.trim()) fd.append("paste", payloadPaste);
+      if (forceFlag) fd.append("force", "true");
       const res = await fetch("/api/ingest", { method: "POST", body: fd });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Ingestion failed");
@@ -69,6 +72,32 @@ export default function IngestPage() {
     } finally {
       setBusy(false);
     }
+  };
+
+  const submit = () => send(files, paste, false);
+
+  /**
+   * Re-imports ONLY what was skipped, immediately.
+   *
+   * Two things this must not do: bounce back to the form and make you press
+   * Extract again, and re-send the whole batch — forcing everything would
+   * duplicate the files that imported perfectly well the first time.
+   */
+  const importDuplicatesAnyway = async () => {
+    const dupeNames = new Set(
+      (result?.sources ?? []).filter((s) => s.duplicate).map((s) => s.filename),
+    );
+    const dupeFiles = files.filter((f) => dupeNames.has(f.name));
+    const pasteWasDupe = dupeNames.has("Pasted content");
+    const names = [...dupeNames].join(", ");
+
+    const ok = window.confirm(
+      `Import ${names} again?\n\nThis adds a second copy of the same feedback. ` +
+        `Mention counts for the affected themes will rise, which changes their ranking on the roadmap.`,
+    );
+    if (!ok) return;
+
+    await send(dupeFiles, pasteWasDupe ? paste : "", true);
   };
 
   const reset = () => {
@@ -136,14 +165,14 @@ export default function IngestPage() {
           </button>
           {dupes > 0 && (
             <button
-              onClick={() => {
-                setForce(true);
-                setResult(null);
-              }}
-              className="rounded-[var(--radius-btn)] border border-border bg-surface px-4 py-2 text-[13px] font-semibold text-amber hover:bg-hover"
+              onClick={importDuplicatesAnyway}
+              disabled={busy}
+              className="rounded-[var(--radius-btn)] border border-border bg-surface px-4 py-2 text-[13px] font-semibold text-amber hover:bg-hover disabled:opacity-50"
               title="Only needed if you deliberately want a second copy"
             >
-              Import the duplicate anyway
+              {busy
+                ? "Importing…"
+                : `Import the duplicate${dupes === 1 ? "" : "s"} anyway`}
             </button>
           )}
         </div>

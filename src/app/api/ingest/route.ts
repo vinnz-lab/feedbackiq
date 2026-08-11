@@ -89,7 +89,7 @@ async function persist(incoming: Incoming[], force: boolean) {
         status: "skipped",
         items: 0,
         duplicate: true,
-        note: `Already imported as "${prior.filename}" on ${prior.createdAt.toLocaleDateString("en-GB")}. Tick "import anyway" to add it again.`,
+        note: `Already imported as "${prior.filename}" on ${prior.createdAt.toLocaleDateString("en-GB")}.`,
       });
       continue;
     }
