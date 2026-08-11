@@ -102,7 +102,10 @@ async function persist(incoming: Incoming[], force: boolean) {
     // queued transcription does.
     let status: "queued" | "processing" | "processed" | "failed" = s.status;
     let note = s.note ?? null;
+    // Remember a deliberate override so the splitter honours the same intent —
+    // otherwise "import anyway" would create a source that splits into nothing.
     let meta: Record<string, unknown> = { contentHash: hash };
+    if (force && prior) meta.forcedImport = true;
     if (s.rawText) meta.rawText = s.rawText.slice(0, 20000);
 
     if (s.kind === "recording" && audio) {

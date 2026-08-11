@@ -5,6 +5,7 @@ import { and, count, eq, isNull, or, sql } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { classifyItem } from "@/lib/ai/classify";
 import { extractFeedbackItems, SPLIT_THRESHOLD_CHARS } from "@/lib/ai/extract";
+import { quoteKey } from "@/lib/ingest/fingerprint";
 import { currentIntervalMs, GeminiRateLimitError } from "@/lib/ai/gemini";
 import { guardAiRun, logAudit, requireUser } from "@/lib/guard";
 
@@ -24,6 +25,8 @@ export type AiRunResult = {
   split?: number;
   /** Atomic items produced by splitting those sources. */
   extracted?: number;
+  /** Extracted points that were already in the workspace. */
+  duplicatesSkipped?: number;
   /** Set whenever anything went wrong — including partial failures. */
   error?: string;
   /** True when we ran out of time rather than out of items. */
@@ -86,6 +89,7 @@ export async function runAiAnalysis(): Promise<AiRunResult> {
     let consecutiveThrottles = 0;
     let split = 0;
     let extracted = 0;
+    let duplicatesSkipped = 0;
 
     /** Find-or-create a theme by title, keeping the local caches in step. */
     const resolveTheme = async (title: string): Promise<string | null> => {
@@ -108,6 +112,33 @@ export async function runAiAnalysis(): Promise<AiRunResult> {
     // (and classifyItem only ever saw its first 2000 characters).
     const longOnes = items.filter((i) => i.quote.length > SPLIT_THRESHOLD_CHARS);
 
+    // Quotes already in the workspace. Extraction is where duplicates actually
+    // appear: two exports of the same call have different file fingerprints, so
+    // ingest lets both through, yet they yield identical points.
+    const knownQuotes = new Set<string>();
+    if (longOnes.length) {
+      const prior = await db
+        .select({ quote: schema.feedbackItems.quote })
+        .from(schema.feedbackItems)
+        .where(eq(schema.feedbackItems.workspaceId, ws.id));
+      for (const r of prior) {
+        const k = quoteKey(r.quote);
+        if (k) knownQuotes.add(k);
+      }
+    }
+
+    /** Sources imported with a deliberate override want their copies kept. */
+    const forcedSources = new Set(
+      (
+        await db
+          .select({ id: schema.sources.id, meta: schema.sources.meta })
+          .from(schema.sources)
+          .where(eq(schema.sources.workspaceId, ws.id))
+      )
+        .filter((s) => (s.meta as { forcedImport?: boolean } | null)?.forcedImport)
+        .map((s) => s.id),
+    );
+
     for (const parent of longOnes) {
       if (Date.now() - started > TIME_BUDGET_MS - currentIntervalMs()) {
         timedOut = true;
@@ -120,37 +151,66 @@ export async function runAiAnalysis(): Promise<AiRunResult> {
           areaNames,
         );
         consecutiveThrottles = 0;
-        if (!found.length) continue;
 
-        for (const f of found) {
-          const themeId = await resolveTheme(f.theme);
-          await db.insert(schema.feedbackItems).values({
-            workspaceId: ws.id,
-            sourceId: parent.sourceId,
-            quote: f.quote,
-            customer: parent.customer,
-            submitter: parent.submitter,
-            // Provenance is the whole point of splitting — keep who said it
-            // and when, so every item stays traceable to the recording.
-            speaker: f.speaker ?? parent.speaker,
-            timestampLabel: f.timestampLabel ?? parent.timestampLabel,
-            occurredAt: parent.occurredAt,
-            type: f.type,
-            sentiment: f.sentiment,
-            severity: f.severity,
-            confidence: f.confidence,
-            themeId,
-            reviewStatus: "needs_review",
-            reviewReason: f.confidence === "Low" ? "low confidence" : null,
-          });
-        }
+        const forced = parent.sourceId ? forcedSources.has(parent.sourceId) : false;
+        const fresh = forced
+          ? found
+          : found.filter((f) => {
+              const k = quoteKey(f.quote);
+              if (!k) return true; // too short to judge — keep it
+              if (knownQuotes.has(k)) return false;
+              knownQuotes.add(k);
+              return true;
+            });
+        const dupes = found.length - fresh.length;
+        duplicatesSkipped += dupes;
 
-        // Retire the container. The full text stays on the source record, so
-        // nothing is lost and the split is auditable.
-        await db
-          .update(schema.feedbackItems)
-          .set({ reviewStatus: "discarded", reviewReason: `split into ${found.length} items` })
-          .where(eq(schema.feedbackItems.id, parent.id));
+        // Resolve themes before opening the transaction — creating a theme is
+        // idempotent by title, so it is safe outside and keeps the write short.
+        const withThemes: { f: (typeof fresh)[number]; themeId: string | null }[] = [];
+        for (const f of fresh) withThemes.push({ f, themeId: await resolveTheme(f.theme) });
+
+        // Insert the children and retire the container in ONE transaction.
+        // Previously the container was discarded only AFTER every insert, so a
+        // run killed in between (time budget, rate limit) left the container
+        // queued and the next run split it all over again — duplicates with no
+        // duplicate import involved.
+        await db.transaction(async (tx) => {
+          if (withThemes.length) {
+            await tx.insert(schema.feedbackItems).values(
+              withThemes.map(({ f, themeId }) => ({
+                workspaceId: ws.id,
+                sourceId: parent.sourceId,
+                quote: f.quote,
+                customer: parent.customer,
+                submitter: parent.submitter,
+                // Provenance is the whole point of splitting — keep who said it
+                // and when, so every item stays traceable to the recording.
+                speaker: f.speaker ?? parent.speaker,
+                timestampLabel: f.timestampLabel ?? parent.timestampLabel,
+                occurredAt: parent.occurredAt,
+                type: f.type,
+                sentiment: f.sentiment,
+                severity: f.severity,
+                confidence: f.confidence,
+                themeId,
+                reviewStatus: "needs_review" as const,
+                reviewReason: f.confidence === "Low" ? "low confidence" : null,
+              })),
+            );
+          }
+
+          // The full text stays on the source record, so nothing is lost.
+          await tx
+            .update(schema.feedbackItems)
+            .set({
+              reviewStatus: "discarded",
+              reviewReason: dupes
+                ? `split into ${fresh.length} items · ${dupes} already present`
+                : `split into ${fresh.length} items`,
+            })
+            .where(eq(schema.feedbackItems.id, parent.id));
+        });
 
         await logAudit({
           workspaceId: ws.id,
@@ -159,11 +219,11 @@ export async function runAiAnalysis(): Promise<AiRunResult> {
           action: "ai.split",
           entityType: "feedback_item",
           entityId: parent.id,
-          after: { extracted: found.length },
+          after: { extracted: fresh.length, duplicatesSkipped: dupes, forced },
         });
 
         split++;
-        extracted += found.length;
+        extracted += fresh.length;
       } catch (e) {
         if (e instanceof GeminiRateLimitError) {
           rateLimited = true;
@@ -273,6 +333,7 @@ export async function runAiAnalysis(): Promise<AiRunResult> {
       remaining: Number(remaining),
       split,
       extracted,
+      duplicatesSkipped,
       error,
       timedOut,
       rateLimited,

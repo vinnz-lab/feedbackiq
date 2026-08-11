@@ -29,6 +29,8 @@ export function RunAiButton({ count }: { count: number }) {
                 `✂ Split ${r.split} long source${r.split === 1 ? "" : "s"} into ${r.extracted} items`,
               );
             if (r.processed) parts.push(`✓ Analysed ${r.processed}`);
+            if (r.duplicatesSkipped)
+              parts.push(`${r.duplicatesSkipped} already present, skipped`);
             if (r.failed) parts.push(`${r.failed} failed`);
             if (r.remaining) parts.push(`${r.remaining} still waiting`);
             const summary = parts.join(" · ") || "Nothing to analyse";
