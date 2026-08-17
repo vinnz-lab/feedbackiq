@@ -78,6 +78,23 @@ export default async function SettingsPage() {
       ) : (
         <p className="text-[12.5px] text-muted">Only the workspace owner can add people.</p>
       )}
+
+      {isOwner && (
+        <section className="mt-6 rounded-[var(--radius-card)] border border-border bg-surface p-5 shadow-[var(--shadow)]">
+          <h2 className="text-[15px] font-semibold">Back up your data</h2>
+          <p className="mt-1 mb-3.5 text-[13px] text-muted">
+            Downloads everything — sources, feedback, themes, roadmap and people — as a single
+            JSON file. Worth doing before a break: the hosting plan keeps no automatic backups of
+            its own.
+          </p>
+          <a
+            href="/api/export"
+            className="inline-block rounded-[var(--radius-btn)] border border-border bg-surface px-4 py-2 text-[13px] font-semibold hover:bg-hover"
+          >
+            ⬇ Download a backup
+          </a>
+        </section>
+      )}
     </div>
   );
 }
