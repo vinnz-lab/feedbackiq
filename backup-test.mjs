@@ -21,7 +21,22 @@ const ka = await fetch(base + "/api/cron/keepalive");
 const kaBody = await ka.json();
 check("responds without a session (cron has no cookies)", ka.status === 200, `HTTP ${ka.status}`);
 check("reports success", kaBody.ok === true);
-check("actually queried the database", typeof kaBody.feedbackItems === "number", `items=${kaBody.feedbackItems}`);
+check(
+  "actually queried the database",
+  typeof kaBody.counts?.feedbackItems === "number",
+  `items=${kaBody.counts?.feedbackItems}`,
+);
+check("runs several queries, not one", Object.keys(kaBody.counts ?? {}).length >= 3);
+check("reports whether the scheduler fired it", typeof kaBody.viaCron === "boolean");
+check("exposes how many scheduled runs it has seen", typeof kaBody.cronRunsLogged === "number", `logged=${kaBody.cronRunsLogged}`);
+
+// A manual call must not be mistaken for a scheduled one, otherwise the
+// diagnostic is worthless.
+check("a hand-made call is NOT counted as scheduled", kaBody.viaCron === false);
+const asCron = await (
+  await fetch(base + "/api/cron/keepalive", { headers: { "User-Agent": "vercel-cron/1.0" } })
+).json();
+check("a scheduler-stamped call IS recognised", asCron.viaCron === true);
 check("returns a timestamp", typeof kaBody.at === "string");
 check("leaks no feedback content", !JSON.stringify(kaBody).match(/quote|customer|email/i));
 
