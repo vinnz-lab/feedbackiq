@@ -24,7 +24,7 @@ Return ONLY a JSON object with keys: type, sentiment, severity, confidence, them
 - sentiment: exactly one of ${SENTS.join(", ")}
 - severity: exactly one of ${PRIOS.join(", ")} (how urgent/impactful)
 - confidence: your confidence in this classification, one of High, Medium, Low
-- theme: the SINGLE best match from this list, OR — if none fits well — a concise NEW theme title in Title Case (3–5 words, e.g. "Mobile App Stability"). Do NOT return the literal word "NEW". Existing themes: ${
+- theme: STRONGLY PREFER an existing theme from the list below. Reuse is the whole point — a theme raised by ten customers is the signal the team acts on, and the same complaint filed under ten names is invisible. Match on MEANING, not wording: "the project view takes forever to open" belongs with "Slow Board Loading" even though they share no words. Only invent a new theme when this is genuinely about a different part of the product. If you must, use a concise Title Case title of 3–5 words and never return the literal word "NEW". Existing themes: ${
     themeTitles.length ? themeTitles.map((t) => `"${t}"`).join(", ") : "(none yet)"
   }
 Known product areas for context: ${areas.join(", ") || "(none)"}.
