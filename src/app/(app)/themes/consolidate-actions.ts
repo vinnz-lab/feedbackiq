@@ -5,7 +5,6 @@ import { count, eq } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { proposeThemeMerges, type MergeProposal } from "@/lib/ai/consolidate";
 import { GeminiRateLimitError } from "@/lib/ai/gemini";
-import { summarizeTheme } from "@/lib/ai/summarize";
 import { mergeThemes } from "@/lib/themes/merge";
 import { guardAiRun, requireUser } from "@/lib/guard";
 
@@ -74,6 +73,12 @@ export type ApplyResult = {
   ok: boolean;
   message?: string;
   error?: string;
+  /** Concrete numbers, so the confirmation can prove what happened. */
+  themesRemoved?: number;
+  itemsKept?: number;
+  survivorTitle?: string;
+  /** True when this group had already been merged (e.g. a double click). */
+  alreadyDone?: boolean;
 };
 
 /** Applies one approved group. */
@@ -86,31 +91,23 @@ export async function applyMerge(themeIds: string[], canonicalTitle: string): Pr
 
     const outcome = await mergeThemes(ws.id, themeIds, canonicalTitle);
 
-    // The surviving summary was written about fewer items, so it is now quietly
-    // wrong. Try to rewrite it; if the AI is unavailable, CLEAR it rather than
-    // leave a description that no longer matches the feedback beneath it.
-    let summaryNote = "";
-    try {
-      const quotes = await db
-        .select({ q: schema.feedbackItems.quote })
-        .from(schema.feedbackItems)
-        .where(eq(schema.feedbackItems.themeId, outcome.survivorId))
-        .limit(15);
-      const summary = quotes.length
-        ? await summarizeTheme(outcome.survivorTitle, quotes.map((x) => x.q))
-        : null;
-      await db
-        .update(schema.themes)
-        .set({ summary: summary ?? null })
-        .where(eq(schema.themes.id, outcome.survivorId));
-      if (!summary) summaryNote = " Summary cleared — regenerate when convenient.";
-    } catch {
-      await db
-        .update(schema.themes)
-        .set({ summary: null })
-        .where(eq(schema.themes.id, outcome.survivorId));
-      summaryNote = " Summary cleared (AI unavailable) — regenerate when convenient.";
-    }
+    // The surviving summary described fewer items, so it is now quietly wrong.
+    // Clear it — one fast write — instead of regenerating here.
+    //
+    // Rewriting it inline meant this action awaited a PACED, RETRYING Gemini
+    // call: a 6–20s gap between requests plus up to three attempts on a 429. So
+    // the button sat on "Merging…" for a minute or more while the merge itself
+    // had already committed in milliseconds, and the user could not tell
+    // whether their data had changed. A destructive action must confirm as soon
+    // as it is durable, never wait on an optional one.
+    //
+    // The existing "Regenerate summaries" button fills it back in, and an empty
+    // summary is honest where a stale one is not.
+    await db
+      .update(schema.themes)
+      .set({ summary: null })
+      .where(eq(schema.themes.id, outcome.survivorId));
+    const summaryNote = " Its summary was cleared — hit “Regenerate summaries” when convenient.";
 
     revalidatePath("/themes");
     revalidatePath("/dashboard");
@@ -119,9 +116,12 @@ export async function applyMerge(themeIds: string[], canonicalTitle: string): Pr
     const merged = outcome.mergedAway.length;
     return {
       ok: true,
+      themesRemoved: merged,
+      itemsKept: outcome.itemsMoved,
+      survivorTitle: outcome.survivorTitle,
       message:
         `Merged ${merged} theme${merged === 1 ? "" : "s"} into “${outcome.survivorTitle}”. ` +
-        `${outcome.itemsMoved} feedback item${outcome.itemsMoved === 1 ? "" : "s"} kept.` +
+        `All ${outcome.itemsMoved} feedback item${outcome.itemsMoved === 1 ? "" : "s"} kept and moved across — none deleted.` +
         (outcome.enhancementsUpdated
           ? ` ${outcome.enhancementsUpdated} roadmap item${outcome.enhancementsUpdated === 1 ? "" : "s"} rescored.`
           : "") +
@@ -131,6 +131,17 @@ export async function applyMerge(themeIds: string[], canonicalTitle: string): Pr
         summaryNote,
     };
   } catch (e) {
-    return { ok: false, error: (e as Error).message };
+    const msg = (e as Error).message;
+    // mergeThemes throws this when the themes are already gone — which is what
+    // a double click looks like. The merge DID happen, so say so rather than
+    // showing a failure for something that actually succeeded.
+    if (/no longer exist/i.test(msg)) {
+      return {
+        ok: true,
+        alreadyDone: true,
+        message: "That merge had already been applied — nothing further to do.",
+      };
+    }
+    return { ok: false, error: msg };
   }
 }

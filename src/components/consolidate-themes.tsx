@@ -21,7 +21,7 @@ export function ConsolidateThemes({ themeCount }: { themeCount: number }) {
   const [result, setResult] = useState<ReviewResult | null>(null);
   const [applying, setApplying] = useState<string | null>(null);
   const [done, setDone] = useState<string[]>([]);
-  const [notes, setNotes] = useState<string[]>([]);
+  const [notes, setNotes] = useState<{ ok: boolean; text: string }[]>([]);
   const router = useRouter();
 
   const groups = result?.proposals ?? [];
@@ -58,13 +58,21 @@ export function ConsolidateThemes({ themeCount }: { themeCount: number }) {
         )}
       </div>
 
+      {/* Results stay on screen until the next review. A destructive action that
+          finishes silently is indistinguishable from one that failed — which is
+          exactly how a successful merge got clicked twice. */}
       {notes.map((n, i) => (
         <div
           key={i}
-          className="rounded-[10px] px-3.5 py-2.5 text-[12.5px]"
-          style={{ background: "var(--emerald-soft)", color: "var(--emerald)" }}
+          className="rounded-[10px] border px-3.5 py-3 text-[12.5px] font-medium"
+          style={
+            n.ok
+              ? { background: "var(--emerald-soft)", borderColor: "var(--emerald)", color: "var(--emerald)" }
+              : { background: "var(--rose-soft)", borderColor: "var(--rose)", color: "var(--rose)" }
+          }
         >
-          ✓ {n}
+          {n.ok ? "✓ " : "⚠ "}
+          {n.text}
         </div>
       ))}
 
@@ -100,20 +108,22 @@ export function ConsolidateThemes({ themeCount }: { themeCount: number }) {
                     <button
                       disabled={applying !== null}
                       onClick={async () => {
+                        if (applying) return; // guard against a double click
                         setApplying(key);
                         const r = await applyMerge(g.themeIds, g.canonicalTitle);
                         setApplying(null);
-                        if (r.ok) {
-                          setDone((d) => [...d, key]);
-                          if (r.message) setNotes((n) => [...n, r.message!]);
-                          router.refresh();
-                        } else {
-                          setNotes((n) => [...n, `⚠ ${r.error ?? "Merge failed"}`]);
-                        }
+                        // Remove the card either way when the merge landed —
+                        // including "already applied", which is a success.
+                        if (r.ok) setDone((d) => [...d, key]);
+                        setNotes((n) => [
+                          ...n,
+                          { ok: r.ok, text: r.message ?? r.error ?? "Merge failed" },
+                        ]);
+                        router.refresh();
                       }}
                       className="rounded-[var(--radius-btn)] bg-indigo px-3 py-1.5 text-[12px] font-semibold text-white transition enabled:hover:brightness-110 disabled:opacity-50"
                     >
-                      {applying === key ? "Merging…" : `Merge these ${g.themeIds.length}`}
+                      {applying === key ? "Merging…" : applying ? "Waiting…" : `Merge these ${g.themeIds.length}`}
                     </button>
                     <button
                       disabled={applying !== null}
