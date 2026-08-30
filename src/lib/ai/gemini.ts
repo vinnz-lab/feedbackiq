@@ -31,16 +31,65 @@ let chain: Promise<unknown> = Promise.resolve();
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/** Which allowance ran out. The difference matters enormously to the user: a
+ *  per-minute limit clears in seconds, a daily one not until it resets. */
+export type ThrottleScope = "minute" | "day" | "unknown";
+
 export class GeminiRateLimitError extends Error {
-  constructor(msg: string) {
+  readonly scope: ThrottleScope;
+  /** Google's own retry hint, when it supplies one. */
+  readonly retryAfterSeconds: number | null;
+
+  constructor(msg: string, scope: ThrottleScope, retryAfterSeconds: number | null) {
     super(msg);
     this.name = "GeminiRateLimitError";
+    this.scope = scope;
+    this.retryAfterSeconds = retryAfterSeconds;
+  }
+
+  /** Plain-language advice, driven by what Google actually said. */
+  get advice(): string {
+    if (this.scope === "day") {
+      return "the daily Gemini free-tier quota is used up — it resets at midnight Pacific, so waiting a minute will not help.";
+    }
+    const wait = this.retryAfterSeconds
+      ? `about ${Math.max(5, Math.ceil(this.retryAfterSeconds))} seconds`
+      : "a minute";
+    if (this.scope === "minute") {
+      return `the per-minute Gemini limit was hit — wait ${wait} and try again.`;
+    }
+    return `Gemini is rate limiting — wait ${wait} and try again. If it keeps happening, the daily quota may be spent.`;
   }
 }
 
 /** True when Gemini is saying "slow down" rather than "you got it wrong". */
 function isThrottle(status: number, body: string) {
   return status === 429 || status === 503 || /RESOURCE_EXHAUSTED|UNAVAILABLE/i.test(body);
+}
+
+/**
+ * Reads the useful detail out of a 429 body.
+ *
+ * Google names the exhausted quota (…PerDay… / …PerMinute…) and frequently
+ * includes a RetryInfo delay. Both were being captured and then thrown away in
+ * favour of a hardcoded "wait about a minute" — which is actively misleading
+ * when it is the daily quota, because no amount of waiting a minute fixes it.
+ */
+export function parseThrottle(body: string): {
+  scope: ThrottleScope;
+  retryAfterSeconds: number | null;
+} {
+  const scope: ThrottleScope = /per[\s_-]*day|PerDay|daily/i.test(body)
+    ? "day"
+    : /per[\s_-]*minute|PerMinute/i.test(body)
+      ? "minute"
+      : "unknown";
+
+  // e.g. "retryDelay": "27s"
+  const m = body.match(/"?retryDelay"?\s*:\s*"?(\d+(?:\.\d+)?)s/i);
+  const retryAfterSeconds = m ? Number(m[1]) : null;
+
+  return { scope, retryAfterSeconds };
 }
 
 async function callOnce(prompt: string, key: string) {
@@ -56,8 +105,11 @@ async function callOnce(prompt: string, key: string) {
 
   if (!res.ok) {
     const body = await res.text();
-    const msg = `Gemini API ${res.status}: ${body.slice(0, 200)}`;
-    if (isThrottle(res.status, body)) throw new GeminiRateLimitError(msg);
+    const msg = `Gemini API ${res.status}: ${body.slice(0, 300)}`;
+    if (isThrottle(res.status, body)) {
+      const { scope, retryAfterSeconds } = parseThrottle(body);
+      throw new GeminiRateLimitError(msg, scope, retryAfterSeconds);
+    }
     throw new Error(msg);
   }
 
@@ -91,8 +143,17 @@ export async function geminiJson(prompt: string): Promise<Record<string, unknown
       } catch (e) {
         lastErr = e;
         if (!(e instanceof GeminiRateLimitError)) throw e;
+
+        // A spent DAILY quota will not recover within this run, so retrying
+        // just burns time and makes the failure slower to report.
+        if (e.scope === "day") throw e;
+
         interval = Math.min(MAX_INTERVAL_MS, Math.ceil(interval * 1.5));
-        if (attempt < MAX_ATTEMPTS) await sleep(interval * attempt);
+        if (attempt < MAX_ATTEMPTS) {
+          // Prefer Google's own retry hint over guessing at the backoff.
+          const hinted = e.retryAfterSeconds ? e.retryAfterSeconds * 1000 : 0;
+          await sleep(Math.min(MAX_INTERVAL_MS, Math.max(hinted, interval * attempt)));
+        }
       }
     }
     throw lastErr;

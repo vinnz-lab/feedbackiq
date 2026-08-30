@@ -86,6 +86,65 @@ async function main() {
     check("400 is not misreported as rate limiting", !(e instanceof GeminiRateLimitError));
   }
 
+  // --- 3b. The 429 body says WHICH quota ran out, and often for how long ---
+  // A per-minute limit clears in seconds; a daily one does not clear at all
+  // until it resets. Telling a user to "wait a minute" when the daily quota is
+  // spent sends them round in circles, so the distinction is parsed, not guessed.
+  const { parseThrottle } = await import("../src/lib/ai/gemini.ts");
+
+  const dailyBody = JSON.stringify({
+    error: {
+      code: 429,
+      message: "You exceeded your current quota.",
+      details: [
+        {
+          "@type": "type.googleapis.com/google.rpc.QuotaFailure",
+          violations: [{ quotaId: "GenerateRequestsPerDayPerProjectPerModel-FreeTier" }],
+        },
+        { "@type": "type.googleapis.com/google.rpc.RetryInfo", retryDelay: "27s" },
+      ],
+    },
+  });
+  const perMinuteBody = JSON.stringify({
+    error: {
+      code: 429,
+      details: [
+        { violations: [{ quotaId: "GenerateRequestsPerMinutePerProjectPerModel-FreeTier" }] },
+        { retryDelay: "12s" },
+      ],
+    },
+  });
+  const vagueBody = '{"error":{"code":429,"status":"RESOURCE_EXHAUSTED"}}';
+
+  check("recognises a DAILY quota", parseThrottle(dailyBody).scope === "day", parseThrottle(dailyBody).scope);
+  check("recognises a PER-MINUTE quota", parseThrottle(perMinuteBody).scope === "minute", parseThrottle(perMinuteBody).scope);
+  check("admits when the body says neither", parseThrottle(vagueBody).scope === "unknown");
+  check("reads Google's retry hint", parseThrottle(dailyBody).retryAfterSeconds === 27, `${parseThrottle(dailyBody).retryAfterSeconds}s`);
+  check("no hint means null, not a guess", parseThrottle(vagueBody).retryAfterSeconds === null);
+
+  // The advice a user actually reads must match the quota that ran out.
+  const dailyErr = new GeminiRateLimitError("x", "day", 27);
+  const minuteErr = new GeminiRateLimitError("x", "minute", 12);
+  check(
+    "daily advice does NOT tell them to wait a minute",
+    !/wait a minute/i.test(dailyErr.advice) && /resets|midnight/i.test(dailyErr.advice),
+    dailyErr.advice,
+  );
+  check("minute advice quotes the real delay", /12 second/.test(minuteErr.advice), minuteErr.advice);
+
+  // A spent daily quota must not be retried — it cannot recover mid-run.
+  let dailyAttempts = 0;
+  globalThis.fetch = (async () => {
+    dailyAttempts++;
+    return makeResponse(429, dailyBody);
+  }) as FetchFn;
+  try {
+    await geminiJson("prompt");
+  } catch {
+    /* expected */
+  }
+  check("a daily quota is not retried", dailyAttempts === 1, `${dailyAttempts} attempt(s)`);
+
   // --- 4. Pacing: sequential calls must be separated by the interval. ---
   const stamps: number[] = [];
   globalThis.fetch = (async () => {

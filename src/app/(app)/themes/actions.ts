@@ -29,6 +29,7 @@ export async function regenerateSummaries(): Promise<{
     let updated = 0;
     let failed = 0;
     let rateLimited = false;
+    let throttleAdvice: string | undefined;
     let consecutiveThrottles = 0;
     let firstError: string | undefined;
     let skipped = 0;
@@ -62,6 +63,7 @@ export async function regenerateSummaries(): Promise<{
           // Same circuit breaker as the classify run: once the shared quota is
           // gone, continuing only burns time on calls that cannot succeed.
           rateLimited = true;
+          throttleAdvice = e.advice;
           consecutiveThrottles++;
           if (consecutiveThrottles >= 2) break;
         } else {

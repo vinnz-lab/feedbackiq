@@ -87,6 +87,7 @@ export async function runAiAnalysis(): Promise<AiRunResult> {
     let firstError: string | undefined;
     let timedOut = false;
     let rateLimited = false;
+    let throttleAdvice: string | undefined;
     let consecutiveThrottles = 0;
     let split = 0;
     let extracted = 0;
@@ -237,6 +238,7 @@ export async function runAiAnalysis(): Promise<AiRunResult> {
       } catch (e) {
         if (e instanceof GeminiRateLimitError) {
           rateLimited = true;
+          throttleAdvice = e.advice;
           consecutiveThrottles++;
           if (consecutiveThrottles >= 2) break;
         } else {
@@ -302,6 +304,7 @@ export async function runAiAnalysis(): Promise<AiRunResult> {
           // Flag it either way, so even a single throttle gets explained rather
           // than leaving an item quietly unclassified.
           rateLimited = true;
+          throttleAdvice = e.advice;
           consecutiveThrottles++;
           if (consecutiveThrottles >= 2) {
             // Circuit breaker. The whole batch shares one quota, so once it's

@@ -57,10 +57,13 @@ export async function reviewThemes(): Promise<ReviewResult> {
     };
   } catch (e) {
     if (e instanceof GeminiRateLimitError) {
+      // Nothing was changed — the review is read-only and a single AI call, so
+      // there is no partial progress to lose. Say so, and give the wait that
+      // Google actually reported rather than a guess.
       return {
         proposals: [],
         themeCount: 0,
-        error: "Reached the Gemini free-tier rate limit. Wait about a minute and try again.",
+        error: `${e.advice} Nothing was changed, so just run it again.`,
       };
     }
     return { proposals: [], themeCount: 0, error: (e as Error).message };
