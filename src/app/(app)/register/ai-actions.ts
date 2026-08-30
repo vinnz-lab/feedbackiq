@@ -6,6 +6,7 @@ import { getDb, schema } from "@/db";
 import { classifyItem } from "@/lib/ai/classify";
 import { extractFeedbackItems, SPLIT_THRESHOLD_CHARS } from "@/lib/ai/extract";
 import { quoteKey } from "@/lib/ingest/fingerprint";
+import { findSimilarTitle } from "@/lib/themes/similarity";
 import { currentIntervalMs, GeminiRateLimitError } from "@/lib/ai/gemini";
 import { guardAiRun, logAudit, requireUser } from "@/lib/guard";
 
@@ -97,6 +98,15 @@ export async function runAiAnalysis(): Promise<AiRunResult> {
       if (!t || t.toLowerCase() === "new") return null;
       const hit = themeByTitle.get(t.toLowerCase());
       if (hit) return hit;
+
+      // Exact matching alone let "Slow Board Loading Time" and "Slow Board
+      // Loading" become two themes, which is how the list grew to 36. Reuse a
+      // near-identical existing theme rather than minting a variant.
+      const near = findSimilarTitle(t, themeRows);
+      if (near) {
+        themeByTitle.set(t.toLowerCase(), near.id);
+        return near.id;
+      }
       const [nt] = await db
         .insert(schema.themes)
         .values({ workspaceId: ws.id, title: t, isEmerging: true })

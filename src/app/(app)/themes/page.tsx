@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { ThemeCard, type ThemeAgg } from "@/components/theme-card";
 import { RegenerateSummariesButton } from "@/components/regenerate-summaries-button";
+import { ConsolidateThemes } from "@/components/consolidate-themes";
 
 export const dynamic = "force-dynamic";
 // Server Action timeout is set at the page level; AI batches are paced and
@@ -47,6 +48,10 @@ export default async function ThemesPage() {
         <div className="ml-auto">
           <RegenerateSummariesButton />
         </div>
+      </div>
+
+      <div className="mb-5">
+        <ConsolidateThemes themeCount={themes.length} />
       </div>
 
       <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
