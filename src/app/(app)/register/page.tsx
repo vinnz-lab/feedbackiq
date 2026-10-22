@@ -7,6 +7,7 @@ import {
   type FeedbackType,
   type Sentiment,
 } from "@/components/ui";
+import { ExpandableQuote } from "@/components/expandable-quote";
 import { ReviewQueue } from "@/components/review-queue";
 import { CheckTranscriptionsButton } from "@/components/check-transcriptions-button";
 import type { ReviewItem } from "@/components/review-card";
@@ -140,7 +141,7 @@ async function ItemsTab() {
                 )}
               </Td>
               <Td className="whitespace-nowrap">{r.customer ?? r.submitter ?? "—"}</Td>
-              <Td className="max-w-[340px]">“{r.quote}”</Td>
+              <Td className="max-w-[340px]"><ExpandableQuote quote={r.quote} /></Td>
               <Td className="whitespace-nowrap font-medium text-indigo">{r.themeTitle ?? "—"}</Td>
               <Td>{r.sentiment && <SentimentPill sentiment={r.sentiment as Sentiment} />}</Td>
               <Td>{r.type && <TypePill type={r.type as FeedbackType} />}</Td>
