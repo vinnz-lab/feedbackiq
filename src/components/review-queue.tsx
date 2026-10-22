@@ -17,6 +17,7 @@ export function ReviewQueue({
 }) {
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [pending, start] = useTransition();
+  const [note, setNote] = useState<string | null>(null);
   /** Anchor for shift-click range selection. */
   const lastIndex = useRef<number | null>(null);
 
@@ -113,6 +114,7 @@ export function ReviewQueue({
         />
       ))}
 
+      {note && <p className="text-[12.5px] font-medium text-amber">⚠ {note}</p>}
       <p className="text-[12px] text-muted">
         Nothing here counts in themes, dashboards or digests until a human approves it.
       </p>
@@ -123,7 +125,17 @@ export function ReviewQueue({
           <span className="h-5 w-px bg-[var(--muted)] opacity-40" />
           <button
             disabled={pending}
-            onClick={() => start(async () => { await bulkApprove(ids); clear(); })}
+            onClick={() =>
+              start(async () => {
+                const r = await bulkApprove(ids);
+                setNote(
+                  r.skipped
+                    ? `Approved ${r.approved}. ${r.skipped} not approved — run AI analysis on them first.`
+                    : null,
+                );
+                clear();
+              })
+            }
             className="rounded-[7px] bg-[var(--indigo)] px-3 py-1.5 text-[12px] font-semibold text-white disabled:opacity-50"
           >
             {pending ? "…" : `✓ Approve ${sel.size}`}

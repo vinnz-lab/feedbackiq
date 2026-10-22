@@ -7,6 +7,7 @@ import {
   type FeedbackType,
   type Sentiment,
 } from "@/components/ui";
+import { RunAiButton } from "@/components/run-ai-button";
 import { ExpandableQuote } from "@/components/expandable-quote";
 import { ReviewQueue } from "@/components/review-queue";
 import { CheckTranscriptionsButton } from "@/components/check-transcriptions-button";
@@ -120,7 +121,20 @@ async function ItemsTab() {
     .where(eq(fi.reviewStatus, "approved"))
     .orderBy(desc(fi.createdAt));
 
+  const unanalysed = rows.filter((r) => !r.type).length;
+
   return (
+    <>
+      {unanalysed > 0 && (
+        <div className="mb-3 rounded-[10px] border border-border bg-surface px-3.5 py-3 shadow-[var(--shadow)]">
+          <p className="mb-2 text-[12.5px] text-muted">
+            {unanalysed} approved item{unanalysed === 1 ? " has" : "s have"} no theme yet, because AI
+            analysis hasn&apos;t run on {unanalysed === 1 ? "it" : "them"}. They won&apos;t appear on
+            the Themes page until it does.
+          </p>
+          <RunAiButton count={unanalysed} />
+        </div>
+      )}
     <div className="overflow-hidden rounded-[var(--radius-card)] border border-border bg-surface shadow-[var(--shadow)]">
       <table className="w-full border-collapse text-[12.5px]">
         <thead>
@@ -151,6 +165,7 @@ async function ItemsTab() {
         </tbody>
       </table>
     </div>
+    </>
   );
 }
 

@@ -74,12 +74,25 @@ export async function runAiAnalysis(itemIds?: string[]): Promise<AiRunResult> {
     // the selection is left alone rather than re-spent on). With no ids it
     // covers everything eligible, as before.
     const scoped = itemIds && itemIds.length > 0 ? inArray(schema.feedbackItems.id, itemIds) : undefined;
+    //
+    // Also included: items that were APPROVED before the AI ever ran on them.
+    // They sit in the register with no type, sentiment or theme, so they never
+    // show up in Themes — approval alone does not analyse anything.
     const needsWork = and(
       scoped,
-      eq(schema.feedbackItems.reviewStatus, "needs_review"),
       or(
-        isNull(schema.feedbackItems.type),
-        sql`length(${schema.feedbackItems.quote}) > ${SPLIT_THRESHOLD_CHARS}`,
+        and(
+          eq(schema.feedbackItems.reviewStatus, "needs_review"),
+          or(
+            isNull(schema.feedbackItems.type),
+            sql`length(${schema.feedbackItems.quote}) > ${SPLIT_THRESHOLD_CHARS}`,
+          ),
+        ),
+        and(
+          eq(schema.feedbackItems.reviewStatus, "approved"),
+          isNull(schema.feedbackItems.type),
+          sql`length(${schema.feedbackItems.quote}) <= ${SPLIT_THRESHOLD_CHARS}`,
+        ),
       ),
     );
 

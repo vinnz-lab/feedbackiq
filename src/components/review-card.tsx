@@ -82,6 +82,7 @@ export function ReviewCard({
     themes.find((t) => t.title === item.themeTitle)?.id ?? "",
   );
   const [expanded, setExpanded] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
   const c = reasonChip(item.reason);
   const isLong = item.quote.length > QUOTE_PREVIEW_CHARS;
 
@@ -185,12 +186,18 @@ export function ReviewCard({
         </div>
       )}
 
+      {notice && <p className="mt-2 text-[12px] font-medium text-amber">⚠ {notice}</p>}
       <div className="mt-3 flex flex-wrap items-center gap-2">
         {!editing ? (
           <>
             <button
               disabled={pending}
-              onClick={() => start(() => approveItem(item.id))}
+              onClick={() =>
+                start(async () => {
+                  const r = await approveItem(item.id);
+                  setNotice(r.approved ? null : "Run AI analysis on this first — approving needs a type and theme.");
+                })
+              }
               className="rounded-[var(--radius-btn)] bg-indigo px-3 py-1.5 text-[12px] font-semibold text-white transition enabled:hover:brightness-110 disabled:opacity-50"
             >
               {pending ? "…" : "✓ Approve"}

@@ -21,6 +21,10 @@ async function main() {
     { workspaceId: ws.id, sourceId: src.id, quote: `B ${stamp}`, reviewStatus: "needs_review" as const },
     { workspaceId: ws.id, sourceId: src.id, quote: `C ${stamp}`, reviewStatus: "needs_review" as const },
     { workspaceId: ws.id, sourceId: src.id, quote: `D done ${stamp}`, type: "Bug", reviewStatus: "needs_review" as const },
+    // Approved but never analysed: the state that left the Themes page empty.
+    { workspaceId: ws.id, sourceId: src.id, quote: `E approved ${stamp}`, reviewStatus: "approved" as const },
+    { workspaceId: ws.id, sourceId: src.id, quote: `F approved+done ${stamp}`, type: "Bug", reviewStatus: "approved" as const },
+    { workspaceId: ws.id, sourceId: src.id, quote: `G discarded ${stamp}`, reviewStatus: "discarded" as const },
   ]).returning({ id: schema.feedbackItems.id, quote: schema.feedbackItems.quote });
   const id = (p: string) => rows.find((r) => r.quote.startsWith(p))!.id;
   const mine = inArray(schema.feedbackItems.id, rows.map((r) => r.id));
@@ -28,18 +32,26 @@ async function main() {
   // Same shape as runAiAnalysis: optional scope AND'd with the eligibility test.
   const build = (itemIds?: string[]) => {
     const scoped = itemIds && itemIds.length > 0 ? inArray(schema.feedbackItems.id, itemIds) : undefined;
-    return and(mine, scoped, eq(schema.feedbackItems.reviewStatus, "needs_review"),
-      or(isNull(schema.feedbackItems.type), sql`length(${schema.feedbackItems.quote}) > ${SPLIT_THRESHOLD_CHARS}`));
+    return and(mine, scoped, or(
+      and(eq(schema.feedbackItems.reviewStatus, "needs_review"),
+        or(isNull(schema.feedbackItems.type), sql`length(${schema.feedbackItems.quote}) > ${SPLIT_THRESHOLD_CHARS}`)),
+      and(eq(schema.feedbackItems.reviewStatus, "approved"), isNull(schema.feedbackItems.type),
+        sql`length(${schema.feedbackItems.quote}) <= ${SPLIT_THRESHOLD_CHARS}`),
+    ));
   };
   const pick = async (ids?: string[]) =>
     (await db.select({ q: schema.feedbackItems.quote }).from(schema.feedbackItems).where(build(ids))).map((r) => r.q[0]).sort().join("");
 
-  check("no selection = everything eligible", (await pick()) === "ABC");
-  check("empty selection = everything eligible", (await pick([])) === "ABC");
+  check("no selection = everything eligible", (await pick()) === "ABCE");
+  check("empty selection = everything eligible", (await pick([])) === "ABCE");
   check("selecting A,B runs ONLY A,B", (await pick([id("A"), id("B")])) === "AB");
   check("selecting one runs only that one", (await pick([id("C")])) === "C");
   check("already-classified selected row is skipped", (await pick([id("D")])) === "");
   check("mixed selection skips the done one", (await pick([id("A"), id("D")])) === "A");
+
+  check("approved-but-unanalysed item is picked up", (await pick([id("E")])) === "E");
+  check("approved AND analysed is left alone", (await pick([id("F")])) === "");
+  check("discarded is never picked up", (await pick([id("G")])) === "");
 
   // The real action must actually use the scope, and the button must send it.
   const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
@@ -49,6 +61,10 @@ async function main() {
   check("action accepts itemIds", /runAiAnalysis\(itemIds\?: string\[\]\)/.test(act));
   check("action scopes by inArray(id, itemIds)", /inArray\(schema\.feedbackItems\.id, itemIds\)/.test(act));
   check("scope is part of needsWork (also used for 'remaining')", /needsWork = and\(\s*scoped,/.test(act));
+  const acts = strip(readFileSync("src/app/(app)/register/actions.ts", "utf8"));
+  check("action's query includes approved-unanalysed", /reviewStatus, "approved"\),\s*isNull\(schema\.feedbackItems\.type\)/.test(act));
+  check("bulkApprove refuses un-analysed items", /isNotNull\(schema\.feedbackItems\.type\)/.test(acts.slice(acts.indexOf("bulkApprove"), acts.indexOf("bulkDiscard"))));
+  check("approveItem refuses un-analysed items", /isNotNull\(schema\.feedbackItems\.type\)/.test(acts.slice(acts.indexOf("export async function approveItem"), acts.indexOf("export async function discardItem"))));
   check("button passes selection when scoped", /runAiAnalysis\(scoped \? selectedIds : undefined\)/.test(btn));
   check("queue hands the selection to the button", /selectedIds=\{ids\}/.test(q));
 
