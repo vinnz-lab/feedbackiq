@@ -30,6 +30,18 @@ export type ReviewItem = {
 const TYPES: FeedbackTypeT[] = ["Feature", "Bug", "UX", "Question", "Praise"];
 const SENTIMENTS: SentimentT[] = ["Positive", "Neutral", "Negative"];
 
+/** Quotes longer than this start collapsed. Whole transcripts can be thousands
+ *  of characters, which pushes every other card off the screen. */
+export const QUOTE_PREVIEW_CHARS = 280;
+
+/** Cuts at a word boundary so the preview never ends mid-word. */
+export function previewQuote(quote: string, max = QUOTE_PREVIEW_CHARS): string {
+  if (quote.length <= max) return quote;
+  const cut = quote.slice(0, max);
+  const lastSpace = cut.lastIndexOf(" ");
+  return (lastSpace > max * 0.6 ? cut.slice(0, lastSpace) : cut).trimEnd();
+}
+
 function reasonChip(reason: string | null) {
   const map: Record<string, { bg: string; fg: string; label: string }> = {
     "low confidence": { bg: "var(--amber-soft)", fg: "var(--amber)", label: "◐ Low confidence" },
@@ -69,7 +81,9 @@ export function ReviewCard({
   const [themeId, setThemeId] = useState<string>(
     themes.find((t) => t.title === item.themeTitle)?.id ?? "",
   );
+  const [expanded, setExpanded] = useState(false);
   const c = reasonChip(item.reason);
+  const isLong = item.quote.length > QUOTE_PREVIEW_CHARS;
 
   return (
     <div className="rounded-[var(--radius-card)] border border-border bg-surface p-4 shadow-[var(--shadow)]">
@@ -113,7 +127,19 @@ export function ReviewCard({
         <span className="ml-auto text-[11.5px] text-muted">Confidence: {item.confidence ?? "—"}</span>
       </div>
 
-      <div className="text-[14px] font-medium">“{item.quote}”</div>
+      <div className="whitespace-pre-line text-[14px] font-medium">
+        “{isLong && !expanded ? previewQuote(item.quote) + "…" : item.quote}”
+      </div>
+      {isLong && (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          aria-expanded={expanded}
+          className="mt-1 text-[12px] font-semibold text-indigo hover:underline"
+        >
+          {expanded ? "Show less" : `Read more (${item.quote.length.toLocaleString()} characters)`}
+        </button>
+      )}
 
       {!editing && (
         <div className="mt-2.5 flex flex-wrap items-center gap-2">
