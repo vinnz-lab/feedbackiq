@@ -3,6 +3,7 @@ import { authMode } from "@/lib/supabase/env";
 import { isAdminConfigured } from "@/lib/supabase/admin";
 import { AddTeamMember } from "./add-team-member";
 import { RemoveMember } from "./remove-member";
+import { ClearRegister } from "./clear-register";
 
 export const dynamic = "force-dynamic";
 
@@ -95,6 +96,7 @@ export default async function SettingsPage() {
           </a>
         </section>
       )}
+      {isOwner && <ClearRegister />}
     </div>
   );
 }
