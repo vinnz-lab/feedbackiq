@@ -10,7 +10,7 @@
     "test:unit": "tsx scripts/gemini-test.ts && tsx scripts/parse-test.ts && tsx scripts/extract-test.ts && tsx scripts/transcribe-test.ts && tsx scripts/fingerprint-test.ts && tsx scripts/similarity-test.ts && tsx scripts/critical-path-test.ts",
     "test:e2e": "node regress.mjs && node auth-test.mjs && node dupe-test.mjs && node force-flow-test.mjs && node backup-test.mjs && node select-test.mjs",
     "db:test": "PGLITE_DIR=./.pglite-test tsx scripts/db-setup.ts && PGLITE_DIR=./.pglite-test tsx scripts/seed-unclassified.ts 8",
-    "test:db": "PGLITE_DIR=./.pglite-test tsx scripts/split-query-test.ts && PGLITE_DIR=./.pglite-test tsx scripts/split-dedupe-test.ts && PGLITE_DIR=./.pglite-test tsx scripts/merge-test.ts"
+    "test:db": "PGLITE_DIR=./.pglite-test tsx scripts/split-query-test.ts && PGLITE_DIR=./.pglite-test tsx scripts/split-dedupe-test.ts && PGLITE_DIR=./.pglite-test tsx scripts/merge-test.ts && PGLITE_DIR=./.pglite-test tsx scripts/scoped-run-test.ts"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.4",

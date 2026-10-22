@@ -29,7 +29,8 @@ const PRIOS = ["High", "Medium", "Low"];
 const CONFS = ["High", "Medium", "Low"];
 
 /** Sources longer than this are treated as containers of several points. */
-export const SPLIT_THRESHOLD_CHARS = 1500;
+import { SPLIT_THRESHOLD_CHARS } from "./limits";
+export { SPLIT_THRESHOLD_CHARS };
 /** Chunk size for very long transcripts. Flash's context is large; the real
  *  constraint is output length, so keep chunks modest. */
 const CHUNK_CHARS = 18_000;

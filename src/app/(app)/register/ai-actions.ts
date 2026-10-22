@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { and, count, eq, isNull, or, sql } from "drizzle-orm";
+import { and, count, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { classifyItem } from "@/lib/ai/classify";
 import { extractFeedbackItems, SPLIT_THRESHOLD_CHARS } from "@/lib/ai/extract";
@@ -46,7 +46,7 @@ export type AiRunResult = {
  * when NOTHING succeeded, so a run that classified 5 of 40 items looked like a
  * clean success and left 35 stuck on "Awaiting AI" with no explanation.
  */
-export async function runAiAnalysis(): Promise<AiRunResult> {
+export async function runAiAnalysis(itemIds?: string[]): Promise<AiRunResult> {
   const started = Date.now();
   try {
     const user = await requireUser();
@@ -68,7 +68,14 @@ export async function runAiAnalysis(): Promise<AiRunResult> {
     // A long source that was already "classified" is still wrong — classifyItem
     // only ever saw its first 2000 characters — so it must remain eligible for
     // splitting rather than being permanently skipped.
+    //
+    // When the caller passes ids, work is limited to exactly those rows (still
+    // subject to the same eligibility test, so an already-classified item in
+    // the selection is left alone rather than re-spent on). With no ids it
+    // covers everything eligible, as before.
+    const scoped = itemIds && itemIds.length > 0 ? inArray(schema.feedbackItems.id, itemIds) : undefined;
     const needsWork = and(
+      scoped,
       eq(schema.feedbackItems.reviewStatus, "needs_review"),
       or(
         isNull(schema.feedbackItems.type),

@@ -3,6 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import { ReviewCard, type ReviewItem } from "@/components/review-card";
 import { RunAiButton } from "@/components/run-ai-button";
+import { SPLIT_THRESHOLD_CHARS } from "@/lib/ai/limits";
 import { bulkApprove, bulkDiscard } from "@/app/(app)/register/actions";
 
 export function ReviewQueue({
@@ -59,11 +60,15 @@ export function ReviewQueue({
   const allSelected = items.length > 0 && sel.size === items.length;
   const someSelected = sel.size > 0 && !allSelected;
   const ids = [...sel];
+  // Ticked rows that still need AI: unclassified, or a long source not yet split.
+  const eligible = items.filter(
+    (i) => sel.has(i.id) && (!i.type || i.quote.length > SPLIT_THRESHOLD_CHARS),
+  ).length;
 
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <RunAiButton count={unclassified} />
+        <RunAiButton count={unclassified} selectedIds={ids} selectedEligible={eligible} />
       </div>
 
       {/* Selection toolbar. Sticky because the queue can run to dozens of
