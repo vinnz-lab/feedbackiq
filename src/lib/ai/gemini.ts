@@ -13,10 +13,11 @@
  *     backoff. Without it a single throttled call silently loses that item for
  *     the whole run.
  */
-// Pinned, not an alias. "-latest" aliases can move to a pricier model without
-// warning. Flash-Lite is the cheapest current Gemini model and is accurate
-// enough for classification. Override with GEMINI_MODEL if needed.
-const MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash-lite";
+// Pinned, not an alias: "-latest" aliases can move to a pricier model without
+// warning. gemini-2.5-flash-lite was retired for new accounts in Oct 2026, so
+// this is its current replacement: $0.30 in / $2.50 out per 1M tokens (on the
+// paid tier). Override with GEMINI_MODEL if needed.
+const MODEL = process.env.GEMINI_MODEL || "gemini-3.5-flash-lite";
 
 /** Requests per minute to aim for. The paid tier allows far more than this, so
  *  60 keeps batches fast while staying well inside the limit. Lower it via
