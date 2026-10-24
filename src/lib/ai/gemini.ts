@@ -14,10 +14,10 @@
  *     the whole run.
  */
 // Pinned, not an alias: "-latest" aliases can move to a pricier model without
-// warning. gemini-2.5-flash-lite was retired for new accounts in Oct 2026, so
-// this is its current replacement: $0.30 in / $2.50 out per 1M tokens (on the
-// paid tier). Override with GEMINI_MODEL if needed.
-const MODEL = process.env.GEMINI_MODEL || "gemini-3.5-flash-lite";
+// warning. gemini-3.1-flash-lite is the cheapest current stable model ($0.25 in
+// / $1.50 out per 1M tokens, paid tier) and is scheduled to run until May 2027.
+// 2.5 Flash-Lite is no longer open to new accounts. Override with GEMINI_MODEL.
+const MODEL = process.env.GEMINI_MODEL || "gemini-3.1-flash-lite";
 
 /** Requests per minute to aim for. The paid tier allows far more than this, so
  *  60 keeps batches fast while staying well inside the limit. Lower it via
