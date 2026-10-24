@@ -16,7 +16,11 @@ type Summary = {
   }[];
 };
 
-const ACCEPT = ".eml,.txt,.vtt,.docx,.csv,.xlsx,.xls,.mp3,.mp4,.m4a,.wav";
+// Audio/video is parked ("coming soon") — the server code is kept, but the page
+// no longer offers it. Re-enable by restoring these extensions and removing the
+// AUDIO_EXT guard in addFiles.
+const ACCEPT = ".eml,.txt,.vtt,.docx,.csv,.xlsx,.xls";
+const AUDIO_EXT = /\.(mp3|mp4|m4a|wav|aac|ogg|flac|webm|mov)$/i;
 
 /** The host rejects request bodies over 4.5MB before any of our code runs, so
  *  we stop oversized files here rather than letting them die with an opaque
@@ -34,12 +38,17 @@ export default function IngestPage() {
 
   const addFiles = (list: FileList | null) => {
     if (!list) return;
-    const incoming = Array.from(list);
+    const all = Array.from(list);
+    // Drag-and-drop ignores the input's accept filter, so refuse audio here too.
+    const audio = all.filter((f) => AUDIO_EXT.test(f.name));
+    const incoming = all.filter((f) => !AUDIO_EXT.test(f.name));
     const tooBig = incoming.filter((f) => f.size > MAX_FILE_BYTES);
     const ok = incoming.filter((f) => f.size <= MAX_FILE_BYTES);
 
     setError(
-      tooBig.length
+      audio.length
+        ? `Audio and video files aren't supported yet (${audio.map((f) => `“${f.name}”`).join(", ")}). For now, upload an exported transcript (.txt, .vtt or .docx) instead.`
+        : tooBig.length
         ? `${tooBig.map((f) => `“${f.name}” (${(f.size / 1024 / 1024).toFixed(1)}MB)`).join(", ")} exceeds the ${(
             MAX_FILE_BYTES /
             1024 /
@@ -184,9 +193,8 @@ export default function IngestPage() {
     <div className="mx-auto max-w-2xl">
       <h1 className="text-[30px] font-bold leading-9 tracking-tight">Ingest feedback</h1>
       <p className="mt-1 mb-6 text-[13px] text-muted">
-        Drop files or paste text. We detect the source type and extract feedback items. Audio and
-        video are transcribed with speaker labels, then split into individual points. Max 4MB per
-        file.
+        Drop files or paste text. We detect the source type and extract feedback items, splitting
+        long transcripts into individual points. Max 4MB per file.
       </p>
 
       {/* dropzone */}
@@ -209,10 +217,10 @@ export default function IngestPage() {
         <UploadCloud className="text-indigo" />
         <div className="text-[15px] font-semibold">Drop files here or click to browse</div>
         <div className="text-[12px] text-muted">
-          📧 .eml · 📊 .csv .xlsx · 🎙 .vtt .txt .docx · 🎬 .mp3 .mp4 .m4a .wav
+          📧 .eml · 📊 .csv .xlsx · 📝 .vtt .txt .docx
         </div>
         <div className="text-[11px] text-muted opacity-75">
-          Recordings are transcribed with speaker labels, then split into individual points.
+          🎙 Audio and video uploads — coming soon. For now, drop in an exported transcript.
         </div>
         <input
           ref={inputRef}
