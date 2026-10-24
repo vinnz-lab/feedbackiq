@@ -14,6 +14,11 @@ export default async function ThemesPage() {
   const fi = schema.feedbackItems;
 
   const themes = await db.select().from(schema.themes);
+  const onRoadmap = new Set(
+    (await db.select({ themeId: schema.enhancements.themeId }).from(schema.enhancements))
+      .map((r) => r.themeId)
+      .filter((id): id is string => Boolean(id)),
+  );
   const rows = await db
     .select({ themeId: fi.themeId, sentiment: fi.sentiment, kind: schema.sources.kind })
     .from(fi)
@@ -59,6 +64,7 @@ export default async function ThemesPage() {
           <ThemeCard
             key={t.id}
             agg={agg}
+            onRoadmap={onRoadmap.has(t.id)}
             theme={{
               id: t.id,
               title: t.title,

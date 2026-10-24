@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PromoteChip } from "@/components/promote-chip";
 import {
   Card,
   TypePill,
@@ -47,10 +48,21 @@ export function mixString(mix: Record<string, number>) {
     .join(" · ");
 }
 
-export function ThemeCard({ theme, agg }: { theme: ThemeRow; agg: ThemeAgg }) {
+export function ThemeCard({
+  theme,
+  agg,
+  onRoadmap = false,
+}: {
+  theme: ThemeRow;
+  agg: ThemeAgg;
+  onRoadmap?: boolean;
+}) {
   return (
-    <Link href={`/themes/${theme.id}`} className="block">
-      <Card className="flex h-full cursor-pointer flex-col gap-2.5 p-6 transition hover:border-indigo hover:shadow-[0_6px_20px_-6px_rgba(0,0,0,0.14)]">
+    // The button sits beside the link, not inside it — a button nested in a
+    // link is invalid HTML and would navigate away when clicked.
+    <div className="relative h-full">
+    <Link href={`/themes/${theme.id}`} className="block h-full">
+      <Card className="flex h-full cursor-pointer flex-col gap-2.5 p-6 pb-14 transition hover:border-indigo hover:shadow-[0_6px_20px_-6px_rgba(0,0,0,0.14)]">
         <div className="flex items-start gap-2.5">
           <div className="flex-1 text-[16px] font-semibold leading-snug">
             {theme.title}
@@ -79,5 +91,9 @@ export function ThemeCard({ theme, agg }: { theme: ThemeRow; agg: ThemeAgg }) {
         <SentimentBar positive={agg.pos} neutral={agg.neu} negative={agg.neg} showLegend />
       </Card>
     </Link>
+    <div className="absolute bottom-3.5 right-4">
+      <PromoteChip themeId={theme.id} onRoadmap={onRoadmap} />
+    </div>
+    </div>
   );
 }

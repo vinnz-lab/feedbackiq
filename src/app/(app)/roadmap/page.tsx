@@ -72,6 +72,19 @@ export default async function RoadmapPage({
                 </tr>
               </thead>
               <tbody>
+                {enh.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-3 py-10 text-center">
+                      <div className="text-[14px] font-semibold">No roadmap items yet</div>
+                      <p className="mx-auto mt-1 max-w-sm text-[12.5px] text-muted">
+                        Go to{" "}
+                        <Link href="/themes" className="font-semibold text-indigo">Themes</Link>{" "}
+                        and choose “→ Add to roadmap” on a theme. It will appear here with a
+                        score based on how many people raised it.
+                      </p>
+                    </td>
+                  </tr>
+                )}
                 {[...enh].sort((a, b) => b.score - a.score).map((e) => {
                   const st = STATUS_LABEL[e.status];
                   return (
