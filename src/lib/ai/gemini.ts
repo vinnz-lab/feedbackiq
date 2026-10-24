@@ -13,12 +13,15 @@
  *     backoff. Without it a single throttled call silently loses that item for
  *     the whole run.
  */
-const MODEL = process.env.GEMINI_MODEL || "gemini-flash-latest";
+// Pinned, not an alias. "-latest" aliases can move to a pricier model without
+// warning. Flash-Lite is the cheapest current Gemini model and is accurate
+// enough for classification. Override with GEMINI_MODEL if needed.
+const MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash-lite";
 
-/** Requests per minute to aim for. Free-tier Flash has historically been
- *  ~10–15 RPM; Google now shows your real limit in the AI Studio dashboard.
- *  Raise via GEMINI_RPM if your tier allows more. */
-const RPM = Math.max(1, Number(process.env.GEMINI_RPM) || 10);
+/** Requests per minute to aim for. The paid tier allows far more than this, so
+ *  60 keeps batches fast while staying well inside the limit. Lower it via
+ *  GEMINI_RPM if a 429 ever appears. */
+const RPM = Math.max(1, Number(process.env.GEMINI_RPM) || 60);
 const BASE_INTERVAL_MS = Math.ceil(60_000 / RPM);
 const MAX_INTERVAL_MS = 20_000;
 const MAX_ATTEMPTS = 3;
