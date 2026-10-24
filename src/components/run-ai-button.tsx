@@ -70,7 +70,7 @@ export function RunAiButton({
 
       {pending && (
         <span className="text-[12px] text-muted">
-          Paced for the free tier — a large batch can take a couple of minutes.
+          A large batch can take a minute or two.
         </span>
       )}
       {!pending && scoped && selectedEligible < selectedIds.length && (

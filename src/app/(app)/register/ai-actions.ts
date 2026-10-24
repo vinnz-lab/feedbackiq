@@ -355,7 +355,7 @@ export async function runAiAnalysis(itemIds?: string[]): Promise<AiRunResult> {
     let error: string | undefined;
     if (rateLimited) {
       error =
-        "reached the Gemini free-tier rate limit. Wait about a minute, then run again to continue.";
+        "hit the Gemini rate limit. Wait about a minute, then run again to continue.";
     } else if (failed > 0) {
       error = firstError;
     }

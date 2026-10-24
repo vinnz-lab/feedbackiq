@@ -74,7 +74,7 @@ export async function guardAiRun(
   if (recent.length >= AI_DAILY_CAP) {
     return {
       ok: false,
-      error: `Daily AI limit reached (${AI_DAILY_CAP} runs in 24h). This protects your free-tier quota — try again later.`,
+      error: `Daily AI limit reached (${AI_DAILY_CAP} runs in 24h). This protects your AI quota and budget — try again later.`,
     };
   }
 

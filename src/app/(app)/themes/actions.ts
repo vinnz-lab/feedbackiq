@@ -78,7 +78,7 @@ export async function regenerateSummaries(): Promise<{
 
     let error: string | undefined;
     if (rateLimited) {
-      error = "reached the Gemini free-tier rate limit. Wait about a minute, then run again.";
+      error = "hit the Gemini rate limit. Wait about a minute, then run again.";
     } else if (failed > 0) {
       error = firstError;
     } else if (skipped > 0) {
