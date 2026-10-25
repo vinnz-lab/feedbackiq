@@ -143,7 +143,7 @@ export default async function DashboardPage() {
               );
             })()}
             <div className="text-[12px] text-muted">
-              <b className="font-semibold text-fg">{c.total} mentions</b>
+              <b className="font-semibold text-fg">{c.total} {c.total === 1 ? "mention" : "mentions"}</b>
             </div>
             <SentimentBar positive={c.Positive} neutral={c.Neutral} negative={c.Negative} showLegend />
           </Card>

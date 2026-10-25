@@ -103,7 +103,7 @@ export default async function TrendsPage() {
               <BarRow key={t} label={t} value={n} max={themeBars[0][1]} color="var(--indigo)" wide />
             ))}
           </div>
-          <div className="mt-3 text-[12.5px]"><AiText>{topTheme ? `"${topTheme[0]}" leads with ${topTheme[1]} mentions.` : "No themes yet."}</AiText></div>
+          <div className="mt-3 text-[12.5px]"><AiText>{topTheme ? `"${topTheme[0]}" leads with ${topTheme[1]} ${topTheme[1] === 1 ? "mention" : "mentions"}.` : "No themes yet."}</AiText></div>
         </Card>
       </div>
     </div>

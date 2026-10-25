@@ -86,7 +86,7 @@ export function ThemeCard({
           {theme.priority && <PriorityPill priority={theme.priority as Priority} />}
         </div>
         <div className="text-[12px] text-muted">
-          <b className="font-semibold text-fg">{agg.total} mentions</b>
+          <b className="font-semibold text-fg">{agg.total} {agg.total === 1 ? "mention" : "mentions"}</b>
           {agg.total > 0 && <> · {mixString(agg.mix)}</>}
         </div>
         <SentimentBar positive={agg.pos} neutral={agg.neu} negative={agg.neg} showLegend />

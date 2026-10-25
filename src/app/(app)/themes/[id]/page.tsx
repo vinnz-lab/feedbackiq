@@ -106,7 +106,7 @@ export default async function ThemeDetailPage({
         {theme.sentiment && <SentimentPill sentiment={theme.sentiment as Sentiment} />}
         {theme.priority && <PriorityPill priority={theme.priority as Priority} />}
         <span className="ml-1 text-[12px] text-muted">
-          <b className="font-semibold text-fg">{agg.total} mentions</b>
+          <b className="font-semibold text-fg">{agg.total} {agg.total === 1 ? "mention" : "mentions"}</b>
           {agg.total > 0 && <> · {mixString(agg.mix)}</>}
         </span>
       </div>
