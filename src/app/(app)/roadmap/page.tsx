@@ -3,6 +3,7 @@ import { desc } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { computeScore } from "@/lib/score";
 import { RoadmapBoard, type EnhCard } from "@/components/roadmap-board";
+import { ScoreEditor } from "@/components/score-editor";
 import type { EnhancementStatusT } from "@/db/schema";
 
 export const dynamic = "force-dynamic";
@@ -27,6 +28,8 @@ export default async function RoadmapPage({
   const rows = await db.select().from(schema.enhancements).orderBy(desc(schema.enhancements.createdAt));
   const enh = rows.map((e) => ({
     id: e.id,
+    benefitRaw: e.benefit,
+    effortRaw: e.effort,
     title: e.title,
     benefit: e.benefit,
     effort: e.effort,
@@ -68,7 +71,7 @@ export default async function RoadmapPage({
             <table className="w-full border-collapse text-[12.5px]">
               <thead>
                 <tr className="bg-bg text-left">
-                  <Th>Enhancement</Th><Th>Score</Th><Th>Demand</Th><Th>Benefit</Th><Th>Effort</Th><Th>Status</Th>
+                  <Th>Enhancement</Th><Th>Score</Th><Th>Demand</Th><Th colSpan={2}>Benefit &amp; effort (1–10)</Th><Th>Status</Th>
                 </tr>
               </thead>
               <tbody>
@@ -96,8 +99,9 @@ export default async function RoadmapPage({
                         </span>
                       </td>
                       <td className="px-3 py-2.5"><b>{e.demand}</b></td>
-                      <td className="px-3 py-2.5 text-muted">{e.benefit}/10</td>
-                      <td className="px-3 py-2.5 text-muted">{e.effort}/10</td>
+                      <td colSpan={2} className="px-3 py-2.5">
+                        <ScoreEditor id={e.id} benefit={e.benefitRaw} effort={e.effortRaw} />
+                      </td>
                       <td className="px-3 py-2.5">
                         <span className="rounded-[var(--radius-pill)] px-2 py-0.5 text-[11.5px] font-semibold" style={{ background: st.bg, color: st.fg }}>
                           {st.label}
@@ -109,7 +113,7 @@ export default async function RoadmapPage({
               </tbody>
             </table>
             <div className="px-3 py-2.5 text-[11.5px] text-muted">
-              Score weights demand + benefit and penalises effort. Drag items across the Board to set status.
+              Score = benefit + demand − effort. Edit benefit or effort (1–10) and it re-ranks. “Re-estimate” recalculates from the feedback. Drag items across the Board to set status.
             </div>
           </div>
 
@@ -151,6 +155,6 @@ function Matrix({ enh }: { enh: { title: string; benefit: number; effort: number
   );
 }
 
-function Th({ children }: { children: React.ReactNode }) {
-  return <th className="border-b border-border px-3 py-2.5 text-[11px] font-bold uppercase tracking-wide text-muted">{children}</th>;
+function Th({ children, colSpan }: { children: React.ReactNode; colSpan?: number }) {
+  return <th colSpan={colSpan} className="border-b border-border px-3 py-2.5 text-[11px] font-bold uppercase tracking-wide text-muted">{children}</th>;
 }
