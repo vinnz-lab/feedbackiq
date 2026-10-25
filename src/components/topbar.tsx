@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Search, Bell, Moon, Sun } from "lucide-react";
-import { NAV, WORKSPACE_NAME } from "@/lib/nav";
+import { NAV } from "@/lib/nav";
 import { signOut } from "@/app/login/actions";
 
 function useThemeToggle() {
@@ -27,8 +27,10 @@ function useThemeToggle() {
 
 export function Topbar({
   user,
+  workspaceName = "Workspace",
 }: {
   user?: { name: string; role: string; initials: string };
+  workspaceName?: string;
 }) {
   const pathname = usePathname();
   const { theme, toggle } = useThemeToggle();
@@ -48,7 +50,7 @@ export function Topbar({
   return (
     <header className="sticky top-0 z-50 flex h-16 items-center gap-4 border-b border-border bg-surface px-6">
       <div className="whitespace-nowrap text-[13px] text-muted">
-        {WORKSPACE_NAME} · <b className="font-semibold text-fg">{crumb}</b>
+        {workspaceName} · <b className="font-semibold text-fg">{crumb}</b>
       </div>
 
       <div className="relative max-w-[400px] flex-1">

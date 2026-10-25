@@ -3,6 +3,7 @@ import { eq, count } from "drizzle-orm";
 import { Sidebar } from "@/components/sidebar";
 import { Topbar } from "@/components/topbar";
 import { getCurrentUser, initials, ROLE_LABEL } from "@/lib/auth";
+import { getWorkspaceInfo } from "@/lib/workspace-info";
 import { getDb, schema } from "@/db";
 
 /**
@@ -24,6 +25,7 @@ export default async function AppLayout({
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
+  const info = await getWorkspaceInfo();
   const db = await getDb();
   const [{ n }] = await db
     .select({ n: count() })
@@ -32,10 +34,16 @@ export default async function AppLayout({
 
   return (
     <div className="flex min-h-screen">
-      <Sidebar reviewCount={n} />
+      <Sidebar
+        reviewCount={n}
+        tenantName={info.tenantName}
+        workspaceName={info.workspaceName}
+        workspaceSub={info.workspaceSub}
+      />
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar
           user={{ name: user.name, role: ROLE_LABEL[user.role], initials: initials(user.name) }}
+          workspaceName={info.workspaceName}
         />
         <main className="mx-auto w-full max-w-[1240px] flex-1 px-8 py-7 pb-20">
           {children}

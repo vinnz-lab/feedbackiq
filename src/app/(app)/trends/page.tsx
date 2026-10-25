@@ -1,3 +1,4 @@
+import { getWorkspaceInfo } from "@/lib/workspace-info";
 import { eq } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { Card, AiText, SentimentBar } from "@/components/ui";
@@ -18,6 +19,7 @@ function weekKey(d: Date) {
 }
 
 export default async function TrendsPage() {
+  const info = await getWorkspaceInfo();
   const db = await getDb();
   const fi = schema.feedbackItems;
 
@@ -59,7 +61,7 @@ export default async function TrendsPage() {
     <div>
       <div className="mb-6">
         <h1 className="text-[30px] font-bold leading-9 tracking-tight">Trends</h1>
-        <p className="mt-1 text-[13px] text-muted">Feedback trends for Acme App · approved items</p>
+        <p className="mt-1 text-[13px] text-muted">Feedback trends for {info.workspaceName} · approved items</p>
       </div>
 
       <div className="flex flex-col gap-4">

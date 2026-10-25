@@ -1,6 +1,7 @@
 import { getCurrentUser, listUsers, ROLE_LABEL, initials } from "@/lib/auth";
 import { authMode } from "@/lib/supabase/env";
 import { isAdminConfigured } from "@/lib/supabase/admin";
+import { getWorkspaceInfo } from "@/lib/workspace-info";
 import { AddTeamMember } from "./add-team-member";
 import { RemoveMember } from "./remove-member";
 import { ClearRegister } from "./clear-register";
@@ -8,6 +9,7 @@ import { ClearRegister } from "./clear-register";
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
+  const info = await getWorkspaceInfo();
   const [me, users] = await Promise.all([getCurrentUser(), listUsers()]);
   const mode = authMode();
   const isOwner = me?.role === "owner";
@@ -16,7 +18,7 @@ export default async function SettingsPage() {
     <div className="max-w-3xl">
       <div className="mb-6">
         <h1 className="text-[30px] font-bold leading-9 tracking-tight">Settings</h1>
-        <p className="mt-1 text-[13px] text-muted">Team and access for Acme App</p>
+        <p className="mt-1 text-[13px] text-muted">Team and access for {info.workspaceName}</p>
       </div>
 
       <section className="mb-6 rounded-[var(--radius-card)] border border-border bg-surface p-5 shadow-[var(--shadow)]">

@@ -17,9 +17,6 @@ import {
 import {
   NAV,
   APP_NAME,
-  TENANT_NAME,
-  WORKSPACE_NAME,
-  WORKSPACE_SUB,
 } from "@/lib/nav";
 
 const ICONS: Record<string, LucideIcon> = {
@@ -31,7 +28,17 @@ const ICONS: Record<string, LucideIcon> = {
   Settings,
 };
 
-export function Sidebar({ reviewCount = 0 }: { reviewCount?: number }) {
+export function Sidebar({
+  reviewCount = 0,
+  tenantName = "",
+  workspaceName = "Workspace",
+  workspaceSub = "",
+}: {
+  reviewCount?: number;
+  tenantName?: string;
+  workspaceName?: string;
+  workspaceSub?: string;
+}) {
   const pathname = usePathname();
   return (
     <nav className="sticky top-0 flex h-screen w-[240px] shrink-0 flex-col gap-1 border-r border-border bg-surface p-3">
@@ -45,14 +52,14 @@ export function Sidebar({ reviewCount = 0 }: { reviewCount?: number }) {
         </div>
         <span className="text-[18px] font-extrabold tracking-tight">{APP_NAME}</span>
       </div>
-      <div className="pl-12 pb-3 text-[12px] text-muted">{TENANT_NAME}</div>
+      <div className="pl-12 pb-3 text-[12px] text-muted">{tenantName}</div>
 
       {/* app switcher (static in POC) */}
       <button className="mx-1 mb-3.5 flex items-center gap-2.5 rounded-lg border border-border bg-surface px-3 py-2.5 text-left shadow-[var(--shadow)] hover:bg-hover">
         <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: "var(--indigo)" }} />
         <span className="flex-1">
-          <span className="block text-sm font-semibold leading-tight">{WORKSPACE_NAME}</span>
-          <span className="text-[11.5px] text-muted">{WORKSPACE_SUB}</span>
+          <span className="block text-sm font-semibold leading-tight">{workspaceName}</span>
+          <span className="text-[11.5px] text-muted">{workspaceSub}</span>
         </span>
         <ChevronsUpDown size={14} className="text-muted" />
       </button>

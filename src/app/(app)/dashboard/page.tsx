@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { eq, count } from "drizzle-orm";
 import { getDb, schema } from "@/db";
+import { getWorkspaceInfo } from "@/lib/workspace-info";
+import { getCurrentUser } from "@/lib/auth";
 import { loadTrends } from "@/lib/trend-data";
 import {
   Card,
@@ -20,6 +22,9 @@ export const dynamic = "force-dynamic";
 type Breakdown = { Positive: number; Neutral: number; Negative: number; total: number };
 
 export default async function DashboardPage() {
+  const info = await getWorkspaceInfo();
+  const me = await getCurrentUser();
+  const firstName = (me?.name ?? "").split(" ")[0] || "there";
   const db = await getDb();
   const fi = schema.feedbackItems;
 
@@ -68,7 +73,7 @@ export default async function DashboardPage() {
       <div className="mb-6 flex flex-wrap items-start gap-4">
         <div>
           <h1 className="text-[30px] font-bold leading-9 tracking-tight">Dashboard</h1>
-          <p className="mt-1 text-[13px] text-muted">Feedback themes for Acme App · Last 30 days</p>
+          <p className="mt-1 text-[13px] text-muted">Feedback themes for {info.workspaceName} · Last 30 days</p>
         </div>
         <Link
           href="/digest"
@@ -79,9 +84,9 @@ export default async function DashboardPage() {
       </div>
 
       <div className="mb-2">
-        <h2 className="text-[22px] font-semibold tracking-tight">Good evening, Jamie ☀️</h2>
+        <h2 className="text-[22px] font-semibold tracking-tight">Welcome back, {firstName} 👋</h2>
         <p className="mt-0.5 text-[13px] text-muted">
-          Here&apos;s what&apos;s happening with Acme App this week.
+          Here&apos;s what&apos;s happening with {info.workspaceName} this week.
         </p>
       </div>
 

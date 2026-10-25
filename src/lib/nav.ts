@@ -14,6 +14,3 @@ export const NAV: NavItem[] = [
 ];
 
 export const APP_NAME = "FeedbackIQ";
-export const TENANT_NAME = "Acme Group";
-export const WORKSPACE_NAME = "Acme App";
-export const WORKSPACE_SUB = "Customer platform";

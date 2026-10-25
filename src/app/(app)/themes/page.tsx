@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { ThemeCard, type ThemeAgg } from "@/components/theme-card";
 import { RegenerateSummariesButton } from "@/components/regenerate-summaries-button";
+import { getWorkspaceInfo } from "@/lib/workspace-info";
 import { loadTrends } from "@/lib/trend-data";
 import { ConsolidateThemes } from "@/components/consolidate-themes";
 
@@ -14,6 +15,7 @@ export default async function ThemesPage() {
   const db = await getDb();
   const fi = schema.feedbackItems;
 
+  const info = await getWorkspaceInfo();
   const trends = await loadTrends();
   const themes = await db.select().from(schema.themes);
   const onRoadmap = new Set(
@@ -49,7 +51,7 @@ export default async function ThemesPage() {
         <div>
           <h1 className="text-[30px] font-bold leading-9 tracking-tight">Themes</h1>
           <p className="mt-1 text-[13px] text-muted">
-            {themes.length} themes synthesized from all approved feedback in Acme App
+            {themes.length} themes synthesized from all approved feedback in {info.workspaceName}
           </p>
         </div>
         <div className="ml-auto">

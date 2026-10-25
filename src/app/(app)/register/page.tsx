@@ -8,6 +8,7 @@ import {
   type Sentiment,
 } from "@/components/ui";
 import { RunAiButton } from "@/components/run-ai-button";
+import { getWorkspaceInfo } from "@/lib/workspace-info";
 import { ExpandableQuote } from "@/components/expandable-quote";
 import { ReviewQueue } from "@/components/review-queue";
 import { CheckTranscriptionsButton } from "@/components/check-transcriptions-button";
@@ -48,6 +49,7 @@ export default async function RegisterPage({
   searchParams: Promise<{ tab?: string }>;
 }) {
   const { tab: rawTab } = await searchParams;
+  const info = await getWorkspaceInfo();
   const tab = rawTab === "review" || rawTab === "sources" ? rawTab : "items";
   const db = await getDb();
   const fi = schema.feedbackItems;
@@ -71,7 +73,7 @@ export default async function RegisterPage({
             ? "Human checkpoint for unattended arrivals and low-confidence AI classifications"
             : tab === "sources"
               ? "Everything ingested — pipeline status and provenance"
-              : "Every raw feedback item ingested into Acme App"}
+              : `Every raw feedback item ingested into ${info.workspaceName}`}
         </p>
       </div>
 
