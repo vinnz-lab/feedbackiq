@@ -3,6 +3,7 @@ import { getDb, schema } from "@/db";
 import { ThemeCard, type ThemeAgg } from "@/components/theme-card";
 import { RegenerateSummariesButton } from "@/components/regenerate-summaries-button";
 import { getWorkspaceInfo } from "@/lib/workspace-info";
+import { loadFacets } from "@/lib/facets-data";
 import { loadTrends } from "@/lib/trend-data";
 import { ConsolidateThemes } from "@/components/consolidate-themes";
 
@@ -17,6 +18,7 @@ export default async function ThemesPage() {
 
   const info = await getWorkspaceInfo();
   const trends = await loadTrends();
+  const facets = await loadFacets();
   const themes = await db.select().from(schema.themes);
   const onRoadmap = new Set(
     (await db.select({ themeId: schema.enhancements.themeId }).from(schema.enhancements))
@@ -73,9 +75,9 @@ export default async function ThemesPage() {
               id: t.id,
               title: t.title,
               summary: t.summary,
-              type: t.type,
-              sentiment: t.sentiment,
-              priority: t.priority,
+              type: facets.get(t.id)?.type ?? t.type,
+              sentiment: facets.get(t.id)?.sentiment ?? t.sentiment,
+              priority: facets.get(t.id)?.priority ?? t.priority,
               trend: trends.get(t.id),
               isEmerging: t.isEmerging,
             }}

@@ -3,6 +3,7 @@ import { eq, count } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { getWorkspaceInfo } from "@/lib/workspace-info";
 import { getCurrentUser } from "@/lib/auth";
+import { loadFacets } from "@/lib/facets-data";
 import { loadTrends } from "@/lib/trend-data";
 import {
   Card,
@@ -56,6 +57,8 @@ export default async function DashboardPage() {
   }
 
   const trends = await loadTrends();
+  const facets = await loadFacets();
+  const missingSummaries = themes.filter((t) => !t.summary).length;
   const top = themes
     .map((t) => ({ t, c: map.get(t.id) ?? { Positive: 0, Neutral: 0, Negative: 0, total: 0 } }))
     .sort((a, b) => b.c.total - a.c.total)
@@ -105,7 +108,15 @@ export default async function DashboardPage() {
         ))}
       </div>
 
-      <h2 className="mb-3.5 text-[20px] font-semibold tracking-tight">Top themes</h2>
+      <h2 className="mb-1 text-[20px] font-semibold tracking-tight">Top themes</h2>
+      {missingSummaries > 0 && (
+        <p className="mb-3.5 text-[12px] text-muted">
+          {missingSummaries} theme{missingSummaries === 1 ? " has" : "s have"} no summary yet — open{" "}
+          <Link href="/themes" className="font-semibold text-indigo">Themes</Link> and choose
+          “Regenerate summaries”.
+        </p>
+      )}
+      {missingSummaries === 0 && <div className="mb-3.5" />}
       <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
         {top.map(({ t, c }) => (
           <Card key={t.id} className="flex flex-col gap-2.5 p-6">
@@ -113,14 +124,24 @@ export default async function DashboardPage() {
               <div className="flex-1 text-[16px] font-semibold leading-snug">{t.title}</div>
               <TrendChip trend={trends.get(t.id)} />
             </div>
-            <div className="line-clamp-2 min-h-10 text-[13px] text-muted">
-              <AiText>{t.summary}</AiText>
-            </div>
-            <div className="flex flex-wrap items-center gap-1.5">
-              {t.type && <TypePill type={t.type as FeedbackType} />}
-              {t.sentiment && <SentimentPill sentiment={t.sentiment as Sentiment} />}
-              {t.priority && <PriorityPill priority={t.priority as Priority} />}
-            </div>
+            {t.summary && (
+              <div className="line-clamp-2 text-[13px] text-muted">
+                <AiText>{t.summary}</AiText>
+              </div>
+            )}
+            {(() => {
+              const f = facets.get(t.id);
+              const type = f?.type ?? t.type;
+              const sentiment = f?.sentiment ?? t.sentiment;
+              const priority = f?.priority ?? t.priority;
+              return (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {type && <TypePill type={type as FeedbackType} />}
+                  {sentiment && <SentimentPill sentiment={sentiment as Sentiment} />}
+                  {priority && <PriorityPill priority={priority as Priority} />}
+                </div>
+              );
+            })()}
             <div className="text-[12px] text-muted">
               <b className="font-semibold text-fg">{c.total} mentions</b>
             </div>

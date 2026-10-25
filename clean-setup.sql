@@ -196,4 +196,4 @@ CREATE INDEX "themes_workspace_idx" ON "themes" USING btree ("workspace_id");
 -- ============ ONE EMPTY WORKSPACE (the app needs this to exist) ============
 INSERT INTO "tenants" ("name") VALUES ('Test Environment');
 INSERT INTO "workspaces" ("tenant_id", "name", "description")
-SELECT "id", 'Test Workspace', 'Clean environment for testing' FROM "tenants" LIMIT 1;
+SELECT "id", 'Test Workspace', 'Testing' FROM "tenants" LIMIT 1;
