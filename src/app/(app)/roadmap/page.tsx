@@ -39,6 +39,8 @@ export default async function RoadmapPage({
     score: computeScore(e.benefit, e.effort, e.demand),
   }));
 
+  const ranked = [...enh].sort((a, b) => b.score - a.score);
+
   return (
     <div>
       <div className="mb-5 flex flex-wrap items-start gap-4">
@@ -88,11 +90,16 @@ export default async function RoadmapPage({
                     </td>
                   </tr>
                 )}
-                {[...enh].sort((a, b) => b.score - a.score).map((e) => {
+                {ranked.map((e, idx) => {
                   const st = STATUS_LABEL[e.status];
                   return (
                     <tr key={e.id} className="border-t border-border hover:bg-hover">
-                      <td className="px-3 py-2.5 font-semibold">{e.title}</td>
+                      <td className="px-3 py-2.5 font-semibold">
+                        <span className="mr-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-indigo text-[10.5px] font-bold text-white">
+                          {idx + 1}
+                        </span>
+                        {e.title}
+                      </td>
                       <td className="px-3 py-2.5">
                         <span className="rounded-[7px] bg-[var(--indigo-soft)] px-2 py-0.5 font-extrabold text-indigo">
                           {e.score.toFixed(1)}
@@ -103,7 +110,7 @@ export default async function RoadmapPage({
                         <ScoreEditor id={e.id} benefit={e.benefitRaw} effort={e.effortRaw} />
                       </td>
                       <td className="px-3 py-2.5">
-                        <span className="rounded-[var(--radius-pill)] px-2 py-0.5 text-[11.5px] font-semibold" style={{ background: st.bg, color: st.fg }}>
+                        <span className="whitespace-nowrap rounded-[var(--radius-pill)] px-2 py-0.5 text-[11.5px] font-semibold" style={{ background: st.bg, color: st.fg }}>
                           {st.label}
                         </span>
                       </td>
@@ -119,8 +126,8 @@ export default async function RoadmapPage({
 
           <div className="rounded-[var(--radius-card)] border border-border bg-surface p-5 shadow-[var(--shadow)]">
             <h3 className="text-[13px] font-bold">Benefit / effort matrix</h3>
-            <p className="mb-1 text-[11.5px] text-muted">Quick wins surface top-left · bubble = demand</p>
-            <Matrix enh={enh} />
+            <p className="mb-1 text-[11.5px] text-muted">Quick wins surface top-left · bubble size = demand · numbers match the list</p>
+            <Matrix enh={ranked} />
           </div>
         </div>
       )}
@@ -141,14 +148,18 @@ function Matrix({ enh }: { enh: { title: string; benefit: number; effort: number
       <text x={X(5) + 6} y={30} fontSize="9.5" fontWeight="700" fill="var(--muted)">BIG BETS</text>
       <text x={pad + 6} y={h - pad - 8} fontSize="9.5" fontWeight="700" fill="var(--muted)">FILL-INS</text>
       <text x={X(5) + 6} y={h - pad - 8} fontSize="9.5" fontWeight="700" fill="var(--amber)">TIME SINKS</text>
-      {enh.map((e, i) => (
-        <g key={i}>
-          <circle cx={X(e.effort)} cy={Y(e.benefit)} r={5 + Math.min(e.demand, 14) / 3} fill="var(--indigo)" opacity="0.75" />
-          <text x={X(e.effort)} y={Y(e.benefit) - 12} fontSize="9" textAnchor="middle" fill="var(--muted)" fontWeight="600">
-            {e.title.split(" ").slice(0, 2).join(" ")}
-          </text>
-        </g>
-      ))}
+      {enh.map((e, i) => {
+        const r = 8 + Math.min(e.demand, 14) / 3;
+        return (
+          <g key={i}>
+            <title>{`${e.title} — benefit ${e.benefit}, effort ${e.effort}, demand ${e.demand}`}</title>
+            <circle cx={X(e.effort)} cy={Y(e.benefit)} r={r} fill="var(--indigo)" opacity="0.8" />
+            <text x={X(e.effort)} y={Y(e.benefit) + 3.5} fontSize="10" textAnchor="middle" fill="#fff" fontWeight="700">
+              {i + 1}
+            </text>
+          </g>
+        );
+      })}
       <text x={(w + pad) / 2 - 24} y={h - 6} fontSize="9.5" fill="var(--muted)" fontWeight="700">EFFORT →</text>
       <text x={12} y={h / 2} fontSize="9.5" fill="var(--muted)" fontWeight="700" transform={`rotate(-90 12 ${h / 2})`}>BENEFIT →</text>
     </svg>
