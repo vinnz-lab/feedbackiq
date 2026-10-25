@@ -16,11 +16,15 @@ import {
  * distinct theme into another. One bad suggestion should not ride along with
  * five good ones.
  */
+const MAX_TITLE = 100;
+
 export function ConsolidateThemes({ themeCount }: { themeCount: number }) {
   const [pending, start] = useTransition();
   const [result, setResult] = useState<ReviewResult | null>(null);
   const [applying, setApplying] = useState<string | null>(null);
   const [done, setDone] = useState<string[]>([]);
+  // Titles the person has edited, keyed by group. Absent = use the AI's proposal.
+  const [titles, setTitles] = useState<Record<string, string>>({});
   const [notes, setNotes] = useState<{ ok: boolean; text: string }[]>([]);
   const router = useRouter();
 
@@ -36,6 +40,7 @@ export function ConsolidateThemes({ themeCount }: { themeCount: number }) {
             start(async () => {
               setResult(null);
               setDone([]);
+              setTitles({});
               setNotes([]);
               setResult(await reviewThemes());
               router.refresh();
@@ -89,9 +94,27 @@ export function ConsolidateThemes({ themeCount }: { themeCount: number }) {
           <div className="flex flex-col gap-2.5">
             {remaining.map((g) => {
               const key = g.themeIds.join(",");
+              const title = titles[key] ?? g.canonicalTitle;
+              const titleOk = title.trim().length > 0 && title.trim().length <= MAX_TITLE;
               return (
                 <div key={key} className="rounded-[10px] border border-border bg-bg p-3.5">
-                  <div className="text-[13px] font-semibold">{g.canonicalTitle}</div>
+                  <label className="block">
+                    <span className="mb-1 block text-[10.5px] font-bold uppercase tracking-wide text-muted">
+                      Merged theme name (you can edit it)
+                    </span>
+                    <input
+                      value={title}
+                      maxLength={MAX_TITLE + 20}
+                      disabled={applying !== null}
+                      onChange={(e) => setTitles((t) => ({ ...t, [key]: e.target.value }))}
+                      className="w-full rounded-[var(--radius-btn)] border border-border bg-surface px-2.5 py-1.5 text-[13px] font-semibold"
+                    />
+                  </label>
+                  {!titleOk && (
+                    <div className="mt-1 text-[11.5px] text-rose">
+                      {title.trim() ? `Keep it under ${MAX_TITLE} characters.` : "A name is required."}
+                    </div>
+                  )}
                   <div className="mt-1 text-[12px] text-muted">{g.reason}</div>
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {g.titles.map((t, i) => (
@@ -106,11 +129,11 @@ export function ConsolidateThemes({ themeCount }: { themeCount: number }) {
                   </div>
                   <div className="mt-3 flex gap-2">
                     <button
-                      disabled={applying !== null}
+                      disabled={applying !== null || !titleOk}
                       onClick={async () => {
                         if (applying) return; // guard against a double click
                         setApplying(key);
-                        const r = await applyMerge(g.themeIds, g.canonicalTitle);
+                        const r = await applyMerge(g.themeIds, title.trim());
                         setApplying(null);
                         // Remove the card either way when the merge landed —
                         // including "already applied", which is a success.

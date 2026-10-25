@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { ThemeCard, type ThemeAgg } from "@/components/theme-card";
 import { RegenerateSummariesButton } from "@/components/regenerate-summaries-button";
+import { loadTrends } from "@/lib/trend-data";
 import { ConsolidateThemes } from "@/components/consolidate-themes";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +14,7 @@ export default async function ThemesPage() {
   const db = await getDb();
   const fi = schema.feedbackItems;
 
+  const trends = await loadTrends();
   const themes = await db.select().from(schema.themes);
   const onRoadmap = new Set(
     (await db.select({ themeId: schema.enhancements.themeId }).from(schema.enhancements))
@@ -72,7 +74,7 @@ export default async function ThemesPage() {
               type: t.type,
               sentiment: t.sentiment,
               priority: t.priority,
-              deltaPct: t.deltaPct,
+              trend: trends.get(t.id),
               isEmerging: t.isEmerging,
             }}
           />

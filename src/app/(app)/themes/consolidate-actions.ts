@@ -85,6 +85,12 @@ export type ApplyResult = {
 export async function applyMerge(themeIds: string[], canonicalTitle: string): Promise<ApplyResult> {
   try {
     await requireUser();
+    // The name is now editable, so it is checked here too — the form check is
+    // only a convenience and can be bypassed.
+    const name = canonicalTitle.trim();
+    if (!name) return { ok: false, error: "The merged theme needs a name." };
+    if (name.length > 100) return { ok: false, error: "Keep the theme name under 100 characters." };
+    canonicalTitle = name;
     const db = await getDb();
     const [ws] = await db.select().from(schema.workspaces).limit(1);
     if (!ws) return { ok: false, error: "No workspace found." };

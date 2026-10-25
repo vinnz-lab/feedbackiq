@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { eq, count } from "drizzle-orm";
 import { getDb, schema } from "@/db";
+import { loadTrends } from "@/lib/trend-data";
 import {
   Card,
   TypePill,
   SentimentPill,
   PriorityPill,
-  DeltaChip,
+  TrendChip,
   SentimentBar,
   AiText,
   type FeedbackType,
@@ -49,6 +50,7 @@ export default async function DashboardPage() {
     map.set(r.themeId, m);
   }
 
+  const trends = await loadTrends();
   const top = themes
     .map((t) => ({ t, c: map.get(t.id) ?? { Positive: 0, Neutral: 0, Negative: 0, total: 0 } }))
     .sort((a, b) => b.c.total - a.c.total)
@@ -104,7 +106,7 @@ export default async function DashboardPage() {
           <Card key={t.id} className="flex flex-col gap-2.5 p-6">
             <div className="flex items-start gap-2.5">
               <div className="flex-1 text-[16px] font-semibold leading-snug">{t.title}</div>
-              <DeltaChip value={t.deltaPct} />
+              <TrendChip trend={trends.get(t.id)} />
             </div>
             <div className="line-clamp-2 min-h-10 text-[13px] text-muted">
               <AiText>{t.summary}</AiText>

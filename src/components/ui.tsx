@@ -100,6 +100,39 @@ export function DeltaChip({ value }: { value: number }) {
   );
 }
 
+/** Real week-over-week trend. Renders nothing when there is nothing to compare. */
+export function TrendChip({ trend }: { trend?: import("@/lib/trend").Trend }) {
+  if (!trend || trend.kind === "none") return null;
+  if (trend.kind === "new") {
+    return (
+      <span
+        title={`${trend.thisWeek} this week, none the week before`}
+        className="inline-flex items-center rounded-[10px] px-2 py-1 text-[11.5px] font-bold"
+        style={{ color: "var(--indigo)", background: "var(--indigo-soft)" }}
+      >
+        New
+      </span>
+    );
+  }
+  const { pct, thisWeek, lastWeek } = trend;
+  const up = pct > 0;
+  const flat = pct === 0;
+  const style = flat
+    ? { color: "var(--slate)", background: "var(--slate-soft)" }
+    : up
+      ? { color: "var(--emerald)", background: "var(--emerald-soft)" }
+      : { color: "var(--rose)", background: "var(--rose-soft)" };
+  return (
+    <span
+      title={`${thisWeek} this week vs ${lastWeek} the week before`}
+      className="inline-flex items-center gap-1 rounded-[10px] px-2 py-1 text-[11.5px] font-bold"
+      style={style}
+    >
+      {flat ? "—" : up ? "↗" : "↘"} {flat ? "0%" : `${up ? "+" : "−"}${Math.abs(pct)}%`}
+    </span>
+  );
+}
+
 /* ---------------- Sentiment bar (signature component) ---------------- */
 export function SentimentBar({
   positive,

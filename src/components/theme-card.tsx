@@ -1,11 +1,12 @@
 import Link from "next/link";
+import type { Trend } from "@/lib/trend";
 import { PromoteChip } from "@/components/promote-chip";
 import {
   Card,
   TypePill,
   SentimentPill,
   PriorityPill,
-  DeltaChip,
+  TrendChip,
   SentimentBar,
   AiText,
   type FeedbackType,
@@ -28,7 +29,7 @@ export type ThemeRow = {
   type: string | null;
   sentiment: string | null;
   priority: string | null;
-  deltaPct: number;
+  trend?: Trend;
   isEmerging: boolean;
 };
 
@@ -72,7 +73,7 @@ export function ThemeCard({
               </span>
             )}
           </div>
-          <DeltaChip value={theme.deltaPct} />
+          <TrendChip trend={theme.trend} />
         </div>
         {theme.summary && (
           <div className="line-clamp-2 min-h-10 text-[13px] text-muted">
