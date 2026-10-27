@@ -125,7 +125,7 @@ export default async function DashboardPage() {
               <TrendChip trend={trends.get(t.id)} />
             </div>
             {t.summary && (
-              <div className="line-clamp-2 text-[13px] text-muted">
+              <div className="line-clamp-1 text-[13px] text-muted">
                 <AiText>{t.summary}</AiText>
               </div>
             )}
