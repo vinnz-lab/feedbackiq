@@ -7,6 +7,9 @@ import { AddTeamMember } from "./add-team-member";
 import { RemoveMember } from "./remove-member";
 import { ClearRegister } from "./clear-register";
 import { WorkspaceDetails } from "./workspace-details";
+import { DeleteWorkspace } from "./delete-workspace";
+import { and, count, eq } from "drizzle-orm";
+import { getDb, schema } from "@/db";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +21,27 @@ export default async function SettingsPage() {
   const users = await listMembers(ctx.workspace.id);
   const mode = authMode();
   const isOwner = ctx.role === "owner";
+
+  // For the delete section: what would go, and who would lose access.
+  let delCounts = { items: 0, themes: 0, roadmap: 0 };
+  if (isOwner) {
+    const db = await getDb();
+    const c = async (t: typeof schema.themes) =>
+      Number((await db.select({ n: count() }).from(t).where(eq(t.workspaceId, ctx.workspace.id)))[0].n);
+    delCounts = {
+      items: Number(
+        (
+          await db
+            .select({ n: count() })
+            .from(schema.feedbackItems)
+            .where(and(eq(schema.feedbackItems.workspaceId, ctx.workspace.id)))
+        )[0].n,
+      ),
+      themes: await c(schema.themes),
+      roadmap: await c(schema.enhancements as unknown as typeof schema.themes),
+    };
+  }
+  const others = users.filter((u) => u.id !== me.id).map((u) => u.name);
 
   return (
     <div className="max-w-3xl">
@@ -108,6 +132,14 @@ export default async function SettingsPage() {
         </section>
       )}
       {isOwner && <ClearRegister />}
+      {isOwner && (
+        <DeleteWorkspace
+          name={ctx.workspace.name}
+          isLast={ctx.memberships.length < 2}
+          others={others}
+          counts={delCounts}
+        />
+      )}
     </div>
   );
 }

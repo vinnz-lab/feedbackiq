@@ -11,7 +11,7 @@
     "test:e2e": "node regress.mjs && node auth-test.mjs && node dupe-test.mjs && node force-flow-test.mjs && node backup-test.mjs && node select-test.mjs && node roadmap-test.mjs && node rename-ui-test.mjs",
     "db:test": "PGLITE_DIR=./.pglite-test tsx scripts/db-setup.ts && PGLITE_DIR=./.pglite-test tsx scripts/seed-unclassified.ts 8",
     "test:db": "PGLITE_DIR=./.pglite-test tsx scripts/split-query-test.ts && PGLITE_DIR=./.pglite-test tsx scripts/split-dedupe-test.ts && PGLITE_DIR=./.pglite-test tsx scripts/merge-test.ts && PGLITE_DIR=./.pglite-test tsx scripts/scoped-run-test.ts && PGLITE_DIR=./.pglite-test tsx scripts/rename-test.ts",
-    "test:isolation": "node isolation-test.mjs && node workspace-switch-test.mjs"
+    "test:isolation": "node isolation-test.mjs && node workspace-switch-test.mjs && node workspace-delete-test.mjs"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.4",

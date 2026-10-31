@@ -3,7 +3,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { eq } from "drizzle-orm";
+import { count, eq } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { logAudit } from "@/lib/guard";
 import { isPlatformAdmin } from "@/lib/platform";
@@ -110,4 +110,89 @@ export async function updateWorkspace(
   });
   revalidatePath("/", "layout");
   return { ok: "Saved." };
+}
+
+export type DeleteWorkspaceState = { error?: string };
+
+/**
+ * Permanently deletes the CURRENT workspace and everything in it.
+ *
+ * Guards, all checked here on the server (the form's checks are only a convenience):
+ *  - only its owner may delete it;
+ *  - never your last workspace (you'd be left with nothing to sign in to);
+ *  - the exact workspace name must be typed, and a backup acknowledged.
+ * Everything goes in one transaction, so it is all deleted or none of it is.
+ * Other members lose access (their accounts stay; anyone with no other
+ * workspace sees "No workspace yet"). The record of the deletion is written to
+ * the workspace you land in, since the deleted one's audit trail goes with it.
+ */
+export async function deleteWorkspace(
+  _prev: DeleteWorkspaceState,
+  formData: FormData,
+): Promise<DeleteWorkspaceState> {
+  const ctx = await requireWorkspace();
+  const ws = ctx.workspace;
+  if (ctx.role !== "owner") return { error: "Only the workspace owner can delete it." };
+
+  const next = ctx.memberships.find((m) => m.workspace.id !== ws.id);
+  if (!next) return { error: "This is your only workspace, so it can't be deleted." };
+
+  if (String(formData.get("confirmName") ?? "").trim() !== ws.name) {
+    return { error: `Type the workspace name exactly — “${ws.name}” — to confirm.` };
+  }
+  if (formData.get("backupDone") !== "on") {
+    return { error: "Download a backup first, then tick the box to confirm." };
+  }
+
+  const db = await getDb();
+  const n = async (t: { workspaceId: unknown }) =>
+    Number(
+      (
+        await db
+          .select({ n: count() })
+          .from(t as typeof schema.themes)
+          .where(eq((t as typeof schema.themes).workspaceId, ws.id))
+      )[0].n,
+    );
+  const removed = {
+    feedbackItems: await n(schema.feedbackItems as never),
+    themes: await n(schema.themes as never),
+    sources: await n(schema.sources as never),
+    roadmapItems: await n(schema.enhancements as never),
+    digests: await n(schema.digests as never),
+    members: await n(schema.workspaceMembers as never),
+  };
+
+  await db.transaction(async (tx) => {
+    // Children first, so nothing depends on cascade behaviour.
+    await tx.delete(schema.digests).where(eq(schema.digests.workspaceId, ws.id));
+    await tx.delete(schema.enhancements).where(eq(schema.enhancements.workspaceId, ws.id)); // evidence links cascade
+    await tx.delete(schema.feedbackItems).where(eq(schema.feedbackItems.workspaceId, ws.id));
+    await tx.delete(schema.sources).where(eq(schema.sources.workspaceId, ws.id));
+    await tx.delete(schema.themes).where(eq(schema.themes.workspaceId, ws.id));
+    await tx.delete(schema.productAreas).where(eq(schema.productAreas.workspaceId, ws.id));
+    await tx.delete(schema.trackerConnections).where(eq(schema.trackerConnections.workspaceId, ws.id));
+    await tx.delete(schema.aiConfigs).where(eq(schema.aiConfigs.workspaceId, ws.id));
+    await tx.delete(schema.auditEvents).where(eq(schema.auditEvents.workspaceId, ws.id));
+    await tx.delete(schema.workspaceMembers).where(eq(schema.workspaceMembers.workspaceId, ws.id));
+    const gone = await tx
+      .delete(schema.workspaces)
+      .where(eq(schema.workspaces.id, ws.id))
+      .returning({ id: schema.workspaces.id });
+    if (gone.length !== 1) throw new Error("The workspace could not be deleted. Nothing was changed.");
+  });
+
+  await logAudit({
+    workspaceId: next.workspace.id,
+    actorId: ctx.user.id,
+    actorLabel: ctx.user.name,
+    action: "workspace.deleted",
+    entityType: "workspace",
+    entityId: ws.id,
+    after: { name: ws.name, ...removed },
+  });
+
+  (await cookies()).set(WS_COOKIE, next.workspace.id, COOKIE_OPTS);
+  revalidatePath("/", "layout");
+  redirect("/dashboard");
 }

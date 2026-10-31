@@ -73,6 +73,11 @@ check("only the platform owner can create a workspace", /isPlatformAdmin\(ctx\.u
 check("switching only opens a workspace you're a member of", /ctx\.memberships\.find/.test(fn("switchWorkspace")) && /aren't a member/.test(fn("switchWorkspace")));
 check("only a workspace's owner can rename it", /ctx\.role !== "owner"/.test(fn("updateWorkspace")));
 check("renaming only ever touches the CURRENT workspace", /eq\(schema\.workspaces\.id, ctx\.workspace\.id\)/.test(fn("updateWorkspace")));
+check("delete: owner only", /ctx\.role !== "owner"/.test(fn("deleteWorkspace")));
+check("delete: never your last workspace (checked on the server)", /if \(!next\) return \{ error/.test(fn("deleteWorkspace")));
+check("delete: exact name required (checked on the server)", /\.trim\(\) !== ws\.name/.test(fn("deleteWorkspace")));
+check("delete: only ever the CURRENT workspace", !/formData\.get\("(workspaceId|id)"\)/.test(fn("deleteWorkspace")));
+check("delete: everything in one transaction", /db\.transaction\(/.test(fn("deleteWorkspace")));
 const plat = strip(readFileSync("src/lib/platform.ts", "utf8"));
 check("platform owner comes from an env variable, not anything the app can change", /process\.env\.PLATFORM_ADMIN_EMAILS/.test(plat) && !/getDb/.test(plat));
 
