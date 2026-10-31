@@ -26,12 +26,16 @@ export async function seed(db: DB) {
     .returning();
   const wsId = ws.id;
 
-  await db.insert(schema.users).values([
+  const seededUsers = await db.insert(schema.users).values([
     { tenantId: tenant.id, email: "jamie@acme.test", name: "Jamie Lee", role: "owner" },
     { tenantId: tenant.id, email: "tom@acme.test", name: "Tom Becker", role: "contributor" },
     { tenantId: tenant.id, email: "riya@acme.test", name: "Riya Shah", role: "executive" },
     { tenantId: tenant.id, email: "ana@acme.test", name: "Ana Costa", role: "engineer" },
-  ]);
+  ]).returning();
+  // Access is granted by membership, not by belonging to the tenant.
+  await db.insert(schema.workspaceMembers).values(
+    seededUsers.map((u) => ({ workspaceId: wsId, userId: u.id, role: u.role })),
+  );
 
   // Product areas (taxonomy)
   const areaNames = [

@@ -5,7 +5,8 @@ import { and, eq } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { summarizeTheme } from "@/lib/ai/summarize";
 import { currentIntervalMs, GeminiRateLimitError } from "@/lib/ai/gemini";
-import { guardAiRun, requireUser } from "@/lib/guard";
+import { guardAiRun } from "@/lib/guard";
+import { requireWorkspace } from "@/lib/workspace";
 
 /** Same honesty rule as runAiAnalysis: partial failures must be reported, not
  *  hidden behind a success count. */
@@ -17,15 +18,15 @@ export async function regenerateSummaries(): Promise<{
   const started = Date.now();
   const TIME_BUDGET_MS = 210_000; // Vercel caps the function at 300s
   try {
-    const user = await requireUser();
+    const ctx = await requireWorkspace();
+    const user = ctx.user;
+    const ws = ctx.workspace;
     const db = await getDb();
-    const [ws] = await db.select().from(schema.workspaces).limit(1);
-    if (!ws) return { updated: 0, failed: 0, error: "No workspace found." };
 
     const gate = await guardAiRun("ai.summarize", ws.id, user);
     if (!gate.ok) return { updated: 0, failed: 0, error: gate.error };
 
-    const themes = await db.select().from(schema.themes);
+    const themes = await db.select().from(schema.themes).where(eq(schema.themes.workspaceId, ws.id));
     let updated = 0;
     let failed = 0;
     let rateLimited = false;
@@ -44,6 +45,7 @@ export async function regenerateSummaries(): Promise<{
         .from(schema.feedbackItems)
         .where(
           and(
+            eq(schema.feedbackItems.workspaceId, ws.id),
             eq(schema.feedbackItems.themeId, t.id),
             eq(schema.feedbackItems.reviewStatus, "approved"),
           ),
@@ -53,7 +55,10 @@ export async function regenerateSummaries(): Promise<{
       try {
         const summary = await summarizeTheme(t.title, items.map((i) => i.q));
         if (summary) {
-          await db.update(schema.themes).set({ summary }).where(eq(schema.themes.id, t.id));
+          await db
+            .update(schema.themes)
+            .set({ summary })
+            .where(and(eq(schema.themes.workspaceId, ws.id), eq(schema.themes.id, t.id)));
           updated++;
         }
         consecutiveThrottles = 0;

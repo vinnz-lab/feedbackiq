@@ -43,6 +43,11 @@ export async function mergeThemes(
     .where(and(eq(schema.themes.workspaceId, workspaceId), inArray(schema.themes.id, themeIds)));
 
   if (themes.length < 2) throw new Error("Those themes no longer exist.");
+  // Every requested theme must be in THIS workspace. A foreign id is refused
+  // outright rather than silently dropped from the merge.
+  if (themes.length !== new Set(themeIds).size) {
+    throw new Error("Some of those themes aren't in this workspace any more. Run the review again.");
+  }
 
   // Mention counts decide which theme survives: keeping the biggest one's row
   // means anything already attached to it — roadmap items especially — stays
@@ -52,7 +57,7 @@ export async function mergeThemes(
     const [{ n }] = await db
       .select({ n: count() })
       .from(schema.feedbackItems)
-      .where(eq(schema.feedbackItems.themeId, t.id));
+      .where(and(eq(schema.feedbackItems.workspaceId, workspaceId), eq(schema.feedbackItems.themeId, t.id)));
     counts.set(t.id, Number(n));
   }
   const ordered = [...themes].sort(

@@ -18,6 +18,7 @@ import { mixString } from "@/components/theme-card";
 import { PromoteButton } from "@/components/promote-button";
 import { ThemeTitleEditor } from "@/components/theme-title-editor";
 import { loadTrends } from "@/lib/trend-data";
+import { currentWorkspaceId } from "@/lib/workspace";
 
 export const dynamic = "force-dynamic";
 
@@ -31,10 +32,19 @@ export default async function ThemeDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const wsId = await currentWorkspaceId();
   const db = await getDb();
   const fi = schema.feedbackItems;
 
-  const [theme] = await db.select().from(schema.themes).where(eq(schema.themes.id, id)).limit(1);
+  // A theme id from another workspace is simply "not found" — never shown.
+  const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const [theme] = UUID.test(id)
+    ? await db
+        .select()
+        .from(schema.themes)
+        .where(and(eq(schema.themes.id, id), eq(schema.themes.workspaceId, wsId)))
+        .limit(1)
+    : [];
   if (!theme) {
     return (
       <div>
@@ -61,7 +71,7 @@ export default async function ThemeDetailPage({
     })
     .from(fi)
     .leftJoin(schema.sources, eq(fi.sourceId, schema.sources.id))
-    .where(and(eq(fi.themeId, id), eq(fi.reviewStatus, "approved")))
+    .where(and(eq(fi.workspaceId, wsId), eq(fi.themeId, id), eq(fi.reviewStatus, "approved")))
     .orderBy(desc(fi.createdAt));
 
   const agg = { total: items.length, pos: 0, neu: 0, neg: 0, mix: {} as Record<string, number> };
@@ -87,7 +97,7 @@ export default async function ThemeDetailPage({
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <ThemeTitleEditor themeId={id} title={theme.title} />
-        <TrendChip trend={(await loadTrends()).get(id)} />
+        <TrendChip trend={(await loadTrends(wsId)).get(id)} />
         {theme.isEmerging && (
           <span className="rounded-[4px] bg-rose px-1.5 py-0.5 text-[9.5px] font-extrabold tracking-wide text-white">EMERGING</span>
         )}

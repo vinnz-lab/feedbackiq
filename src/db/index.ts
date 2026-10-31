@@ -18,7 +18,21 @@ async function init(): Promise<DB> {
       import("postgres"),
     ]);
     // Supabase requires SSL; transaction pooler (pgbouncer) needs prepare:false.
-    const client = postgres.default(process.env.DATABASE_URL, { prepare: false, ssl: "require" });
+    //
+    // Time limits, so a stalled connection FAILS with a message instead of
+    // hanging until Vercel kills the function at 300s (which is how the backup
+    // download sat spinning for five minutes with no error):
+    //  - connect_timeout: give up on a connection that can't be opened in 15s.
+    //  - idle_timeout: close connections idle for 20s, so serverless instances
+    //    don't hoard connections the shared pooler needs.
+    //  - max: a small pool per instance; the pooler does the real pooling.
+    const client = postgres.default(process.env.DATABASE_URL, {
+      prepare: false,
+      ssl: "require",
+      max: 3,
+      idle_timeout: 20,
+      connect_timeout: 15,
+    });
     return drizzle(client, { schema }) as unknown as DB;
   }
   const [{ drizzle }, { PGlite }] = await Promise.all([
@@ -30,8 +44,15 @@ async function init(): Promise<DB> {
 }
 
 // Memoize the promise (not the value) so concurrent callers share one instance.
+//
+// Kept on globalThis, not just in this module: Next.js loads pages, server
+// actions and API routes as separate bundles, each with its own copy of this
+// module. Locally that opened the PGlite directory TWICE, and the two copies
+// drifted apart (an action's write invisible to an API route). In production it
+// would have opened one connection pool per bundle. One per process is right.
+const g = globalThis as unknown as { __fiqDb?: Promise<DB> };
 export function getDb(): Promise<DB> {
-  return (_dbPromise ??= init());
+  return (g.__fiqDb ??= _dbPromise ??= init());
 }
 
 export { schema };

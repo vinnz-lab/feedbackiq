@@ -9,6 +9,7 @@ import {
   timestamp,
   jsonb,
   index,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
@@ -96,6 +97,29 @@ export const users = pgTable("users", {
   lastActiveAt: timestamp("last_active_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
+
+/**
+ * Who may see which workspace, and with what role there.
+ *
+ * Access is decided ONLY by this table. A user with no row here for a workspace
+ * cannot see anything in it — including the platform owner, by design: testers
+ * and (later) clients must be able to trust that their feedback is private.
+ * users.role is legacy and no longer used for permissions.
+ */
+export const workspaceMembers = pgTable(
+  "workspace_members",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    role: roleEnum("role").notNull().default("contributor"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex("members_ws_user_uq").on(t.workspaceId, t.userId),
+    index("members_user_idx").on(t.userId),
+  ],
+);
 
 /* ============================ Taxonomy ============================ */
 export const productAreas = pgTable("product_areas", {

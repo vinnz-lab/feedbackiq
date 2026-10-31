@@ -60,7 +60,7 @@ async function main() {
   const q = strip(readFileSync("src/components/review-queue.tsx", "utf8"));
   check("action accepts itemIds", /runAiAnalysis\(itemIds\?: string\[\]\)/.test(act));
   check("action scopes by inArray(id, itemIds)", /inArray\(schema\.feedbackItems\.id, itemIds\)/.test(act));
-  check("scope is part of needsWork (also used for 'remaining')", /needsWork = and\(\s*scoped,/.test(act));
+  check("scope is part of needsWork (also used for 'remaining')", /needsWork = and\(\s*eq\(schema\.feedbackItems\.workspaceId, ws\.id\),\s*scoped,/.test(act));
   const acts = strip(readFileSync("src/app/(app)/register/actions.ts", "utf8"));
   check("action's query includes approved-unanalysed", /reviewStatus, "approved"\),\s*isNull\(schema\.feedbackItems\.type\)/.test(act));
   check("bulkApprove refuses un-analysed items", /isNotNull\(schema\.feedbackItems\.type\)/.test(acts.slice(acts.indexOf("bulkApprove"), acts.indexOf("bulkDiscard"))));

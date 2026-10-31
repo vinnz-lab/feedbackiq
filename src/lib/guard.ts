@@ -10,8 +10,10 @@ import { getCurrentUser } from "@/lib/auth";
  * Anything that mutates data or spends AI quota must check the caller itself.
  */
 
-/** AI runs are capped per workspace: a cooldown stops double-clicks, the daily
- *  cap stops a runaway loop draining the Gemini free-tier quota. */
+/** The daily cap is SHARED across every workspace (one Gemini balance pays for
+ *  all of them, so one shared allowance protects it). The cooldown is per
+ *  workspace: it only stops double-clicks, and one tester clicking should never
+ *  make another workspace wait. */
 export const AI_COOLDOWN_MS = 15_000;
 export const AI_DAILY_CAP = 25;
 
@@ -65,13 +67,15 @@ export async function guardAiRun(
   const ae = schema.auditEvents;
 
   const dayAgo = new Date(Date.now() - 24 * 3600 * 1000);
-  const recent = await db
-    .select({ createdAt: ae.createdAt })
+  // Shared allowance: count this action across ALL workspaces.
+  const allRecent = await db
+    .select({ createdAt: ae.createdAt, workspaceId: ae.workspaceId })
     .from(ae)
-    .where(and(eq(ae.workspaceId, workspaceId), eq(ae.action, action), gt(ae.createdAt, dayAgo)))
+    .where(and(eq(ae.action, action), gt(ae.createdAt, dayAgo)))
     .orderBy(desc(ae.createdAt));
+  const recent = allRecent.filter((r) => r.workspaceId === workspaceId);
 
-  if (recent.length >= AI_DAILY_CAP) {
+  if (allRecent.length >= AI_DAILY_CAP) {
     return {
       ok: false,
       error: `Daily AI limit reached (${AI_DAILY_CAP} runs in 24h). This protects your AI quota and budget — try again later.`,

@@ -193,6 +193,20 @@ CREATE INDEX "items_review_idx" ON "feedback_items" USING btree ("review_status"
 CREATE INDEX "sources_workspace_idx" ON "sources" USING btree ("workspace_id");--> statement-breakpoint
 CREATE INDEX "themes_workspace_idx" ON "themes" USING btree ("workspace_id");
 
+-- ============ WORKSPACE MEMBERSHIP (who can see which workspace) ============
+CREATE TABLE "workspace_members" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"workspace_id" uuid NOT NULL,
+	"user_id" uuid NOT NULL,
+	"role" "role" DEFAULT 'contributor' NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+ALTER TABLE "workspace_members" ADD CONSTRAINT "workspace_members_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "workspace_members" ADD CONSTRAINT "workspace_members_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+CREATE UNIQUE INDEX "members_ws_user_uq" ON "workspace_members" USING btree ("workspace_id","user_id");--> statement-breakpoint
+CREATE INDEX "members_user_idx" ON "workspace_members" USING btree ("user_id");;
+
 -- ============ ONE EMPTY WORKSPACE (the app needs this to exist) ============
 INSERT INTO "tenants" ("name") VALUES ('Test Environment');
 INSERT INTO "workspaces" ("tenant_id", "name", "description")

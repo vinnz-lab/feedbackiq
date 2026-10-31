@@ -1,5 +1,7 @@
 import { getDb, schema } from "@/db";
 import { getCurrentUser } from "@/lib/auth";
+import { getWorkspaceContext } from "@/lib/workspace";
+import { eq, inArray } from "drizzle-orm";
 import { logAudit } from "@/lib/guard";
 
 export const runtime = "nodejs";
@@ -20,55 +22,54 @@ export const maxDuration = 300;
 export async function GET() {
   const user = await getCurrentUser();
   if (!user) return Response.json({ error: "Sign in to export." }, { status: 401 });
-  if (user.role !== "owner") {
+  const ctx = await getWorkspaceContext();
+  if (!ctx) return Response.json({ error: "You don't have access to a workspace yet." }, { status: 403 });
+  if (ctx.role !== "owner") {
     return Response.json({ error: "Only the workspace owner can export." }, { status: 403 });
   }
+  const wsId = ctx.workspace.id;
 
   try {
     const db = await getDb();
+    const byWs = <T extends { workspaceId: unknown }>(t: T) => eq(t.workspaceId as never, wsId);
 
-    // Ordered so the file reads top-down: who and where, then the taxonomy,
-    // then the feedback itself.
-    const [
-      tenants,
-      workspaces,
-      users,
-      productAreas,
-      sources,
-      themes,
-      feedbackItems,
-      enhancements,
-      evidenceLinks,
-      trackerConnections,
-      digests,
-      aiConfigs,
-      auditEvents,
-    ] = await Promise.all([
-      db.select().from(schema.tenants),
-      db.select().from(schema.workspaces),
-      db.select().from(schema.users),
-      db.select().from(schema.productAreas),
-      db.select().from(schema.sources),
-      db.select().from(schema.themes),
-      db.select().from(schema.feedbackItems),
-      db.select().from(schema.enhancements),
-      db.select().from(schema.evidenceLinks),
-      db.select().from(schema.trackerConnections),
-      db.select().from(schema.digests),
-      db.select().from(schema.aiConfigs),
-      db.select().from(schema.auditEvents),
-    ]);
+    // ONLY the current workspace. Other workspaces (other testers, later other
+    // clients) must never appear in someone else's backup.
+    // One query at a time. Firing all of them at once on a cold serverless
+    // connection is what stalled the live backup for the full five minutes.
+    const tenants = await db.select().from(schema.tenants).where(eq(schema.tenants.id, ctx.workspace.tenantId));
+    const workspaces = await db.select().from(schema.workspaces).where(eq(schema.workspaces.id, wsId));
+    const workspaceMembers = await db.select().from(schema.workspaceMembers).where(byWs(schema.workspaceMembers));
+    const productAreas = await db.select().from(schema.productAreas).where(byWs(schema.productAreas));
+    const sources = await db.select().from(schema.sources).where(byWs(schema.sources));
+    const themes = await db.select().from(schema.themes).where(byWs(schema.themes));
+    const feedbackItems = await db.select().from(schema.feedbackItems).where(byWs(schema.feedbackItems));
+    const enhancements = await db.select().from(schema.enhancements).where(byWs(schema.enhancements));
+    const trackerConnections = await db.select().from(schema.trackerConnections).where(byWs(schema.trackerConnections));
+    const digests = await db.select().from(schema.digests).where(byWs(schema.digests));
+    const aiConfigs = await db.select().from(schema.aiConfigs).where(byWs(schema.aiConfigs));
+    const auditEvents = await db.select().from(schema.auditEvents).where(byWs(schema.auditEvents));
+
+    const memberIds = workspaceMembers.map((m) => m.userId);
+    const users = memberIds.length
+      ? await db.select().from(schema.users).where(inArray(schema.users.id, memberIds))
+      : [];
+    const enhIds = enhancements.map((e) => e.id);
+    const evidenceLinks = enhIds.length
+      ? await db.select().from(schema.evidenceLinks).where(inArray(schema.evidenceLinks.enhancementId, enhIds))
+      : [];
 
     const payload = {
       exportedAt: new Date().toISOString(),
       exportedBy: user.email,
       note:
-        "Full FeedbackIQ export. Every table is included, so this file is enough " +
-        "to rebuild the workspace. Keep it somewhere safe — it contains customer " +
+        "FeedbackIQ export of ONE workspace (" + ctx.workspace.name + "). Everything in it is included, so this file is enough " +
+        "to rebuild that workspace. Keep it somewhere safe — it contains customer " +
         "names and feedback.",
       counts: {
         tenants: tenants.length,
         workspaces: workspaces.length,
+        workspaceMembers: workspaceMembers.length,
         users: users.length,
         productAreas: productAreas.length,
         sources: sources.length,
@@ -84,6 +85,7 @@ export async function GET() {
       data: {
         tenants,
         workspaces,
+        workspaceMembers,
         users,
         productAreas,
         sources,
@@ -100,8 +102,8 @@ export async function GET() {
 
     const stamp = new Date().toISOString().slice(0, 10);
     // Fire-and-forget audit: an export is a sensitive read worth recording.
-    const [ws] = workspaces;
-    if (ws) {
+    const ws = ctx.workspace;
+    {
       await logAudit({
         workspaceId: ws.id,
         actorId: user.id,
@@ -116,7 +118,7 @@ export async function GET() {
     return new Response(JSON.stringify(payload, null, 2), {
       headers: {
         "Content-Type": "application/json",
-        "Content-Disposition": `attachment; filename="feedbackiq-backup-${stamp}.json"`,
+        "Content-Disposition": `attachment; filename="feedbackiq-${ctx.workspace.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-backup-${stamp}.json"`,
         "Cache-Control": "no-store",
       },
     });

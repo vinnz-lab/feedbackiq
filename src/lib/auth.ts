@@ -16,6 +16,19 @@ export const ROLE_LABEL: Record<string, string> = {
 
 export type AppUser = typeof schema.users.$inferSelect;
 
+/** People in ONE workspace, with their role there. */
+export async function listMembers(workspaceId: string) {
+  const db = await getDb();
+  const rows = await db
+    .select({ user: schema.users, role: schema.workspaceMembers.role })
+    .from(schema.workspaceMembers)
+    .innerJoin(schema.users, eq(schema.workspaceMembers.userId, schema.users.id))
+    .where(eq(schema.workspaceMembers.workspaceId, workspaceId))
+    .orderBy(schema.workspaceMembers.createdAt);
+  return rows.map((r) => ({ ...r.user, role: r.role }));
+}
+
+/** Every user. Only for the local dev sign-in picker. */
 export async function listUsers() {
   const db = await getDb();
   return db.select().from(schema.users).orderBy(schema.users.createdAt);
@@ -61,7 +74,24 @@ async function bootstrapOwnerIfNeeded(email: string): Promise<AppUser | null> {
     .onConflictDoNothing()
     .returning();
 
-  return created ?? (await findUserByEmail(email));
+  const user = created ?? (await findUserByEmail(email));
+  if (!user) return null;
+
+  // Access comes from membership. The bootstrap owner gets the first workspace
+  // of the tenant — on a fresh deployment, the only one.
+  const [ws] = await db
+    .select({ id: schema.workspaces.id })
+    .from(schema.workspaces)
+    .where(eq(schema.workspaces.tenantId, tenant.id))
+    .orderBy(schema.workspaces.createdAt)
+    .limit(1);
+  if (ws) {
+    await db
+      .insert(schema.workspaceMembers)
+      .values({ workspaceId: ws.id, userId: user.id, role: "owner" })
+      .onConflictDoNothing();
+  }
+  return user;
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

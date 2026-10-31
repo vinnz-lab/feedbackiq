@@ -1,9 +1,11 @@
 import { redirect } from "next/navigation";
-import { eq, count } from "drizzle-orm";
+import { and, eq, count } from "drizzle-orm";
 import { Sidebar } from "@/components/sidebar";
 import { Topbar } from "@/components/topbar";
 import { getCurrentUser, initials, ROLE_LABEL } from "@/lib/auth";
 import { getWorkspaceInfo } from "@/lib/workspace-info";
+import { getWorkspaceContext } from "@/lib/workspace";
+import { signOut } from "@/app/login/actions";
 import { getDb, schema } from "@/db";
 
 /**
@@ -25,12 +27,38 @@ export default async function AppLayout({
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
+  // Signed in but not a member of any workspace: show nothing from anywhere.
+  const ctx = await getWorkspaceContext();
+  if (!ctx) {
+    return (
+      <div className="flex min-h-screen items-center justify-center p-8">
+        <div className="max-w-sm rounded-[var(--radius-card)] border border-border bg-surface p-7 text-center shadow-[var(--shadow)]">
+          <div className="text-[16px] font-semibold">No workspace yet</div>
+          <p className="mt-1.5 text-[13px] text-muted">
+            Your account isn&apos;t a member of any workspace. Ask the person who invited you to add
+            you to one.
+          </p>
+          <form action={signOut} className="mt-4">
+            <button className="rounded-[var(--radius-btn)] border border-border px-3.5 py-1.5 text-[12.5px] font-semibold hover:bg-hover">
+              Sign out
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
   const info = await getWorkspaceInfo();
   const db = await getDb();
   const [{ n }] = await db
     .select({ n: count() })
     .from(schema.feedbackItems)
-    .where(eq(schema.feedbackItems.reviewStatus, "needs_review"));
+    .where(
+      and(
+        eq(schema.feedbackItems.workspaceId, ctx.workspace.id),
+        eq(schema.feedbackItems.reviewStatus, "needs_review"),
+      ),
+    );
 
   return (
     <div className="flex min-h-screen">
@@ -42,7 +70,7 @@ export default async function AppLayout({
       />
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar
-          user={{ name: user.name, role: ROLE_LABEL[user.role], initials: initials(user.name) }}
+          user={{ name: user.name, role: ROLE_LABEL[ctx.role], initials: initials(user.name) }}
           workspaceName={info.workspaceName}
         />
         <main className="mx-auto w-full max-w-[1240px] flex-1 px-8 py-7 pb-20">

@@ -43,3 +43,12 @@ Do **not** add `ALLOW_DEV_LOGIN`.
 - The free Supabase plan pauses a project after ~7 quiet days. The daily keep-alive in `vercel.json` runs on this deployment too.
 - Free Supabase allows 2 active projects in total. Vercel Hobby is for non-commercial use.
 - To rename the workspace shown in the app, change the name in Supabase → Table Editor → `workspaces` (and `tenants`).
+
+## Upgrading an EXISTING deployment to multi-workspace (Oct 2026)
+Every database that already runs FeedbackIQ (your main one, and any tester copy) needs this once,
+**before** the new code goes live:
+1. Download a backup (Settings → Download a backup).
+2. Supabase → SQL Editor → paste the whole of `drizzle/0001_workspace_members.sql` → Run.
+   It adds one table and gives everyone who can sign in today the same access as before. It changes no existing data.
+   Running it a second time just stops with "already exists".
+If the new code goes live first, people see a "No workspace yet" screen (nothing is lost) until the SQL is run.
