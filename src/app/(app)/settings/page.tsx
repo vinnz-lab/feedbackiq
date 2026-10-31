@@ -8,6 +8,9 @@ import { RemoveMember } from "./remove-member";
 import { ClearRegister } from "./clear-register";
 import { WorkspaceDetails } from "./workspace-details";
 import { DeleteWorkspace } from "./delete-workspace";
+import { ProvisionWorkspace } from "./provision-workspace";
+import { isPlatformAdmin } from "@/lib/platform";
+import { listProvisioned } from "@/lib/platform-data";
 import { and, count, eq } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 
@@ -42,6 +45,10 @@ export default async function SettingsPage() {
     };
   }
   const others = users.filter((u) => u.id !== me.id).map((u) => u.name);
+  const platformAdmin = isPlatformAdmin(me.email);
+  const provisioned = platformAdmin
+    ? (await listProvisioned(me.id)).map((p) => ({ ...p, createdAt: p.createdAt.toISOString() }))
+    : [];
 
   return (
     <div className="max-w-3xl">
@@ -49,6 +56,8 @@ export default async function SettingsPage() {
         <h1 className="text-[30px] font-bold leading-9 tracking-tight">Settings</h1>
         <p className="mt-1 text-[13px] text-muted">Team and access for {info.workspaceName}</p>
       </div>
+
+      {platformAdmin && <ProvisionWorkspace provisioned={provisioned} />}
 
       {isOwner && (
         <WorkspaceDetails name={ctx.workspace.name} description={ctx.workspace.description ?? ""} />
