@@ -35,33 +35,20 @@ export async function GET() {
 
     // ONLY the current workspace. Other workspaces (other testers, later other
     // clients) must never appear in someone else's backup.
-    const [
-      tenants,
-      workspaces,
-      workspaceMembers,
-      productAreas,
-      sources,
-      themes,
-      feedbackItems,
-      enhancements,
-      trackerConnections,
-      digests,
-      aiConfigs,
-      auditEvents,
-    ] = await Promise.all([
-      db.select().from(schema.tenants).where(eq(schema.tenants.id, ctx.workspace.tenantId)),
-      db.select().from(schema.workspaces).where(eq(schema.workspaces.id, wsId)),
-      db.select().from(schema.workspaceMembers).where(byWs(schema.workspaceMembers)),
-      db.select().from(schema.productAreas).where(byWs(schema.productAreas)),
-      db.select().from(schema.sources).where(byWs(schema.sources)),
-      db.select().from(schema.themes).where(byWs(schema.themes)),
-      db.select().from(schema.feedbackItems).where(byWs(schema.feedbackItems)),
-      db.select().from(schema.enhancements).where(byWs(schema.enhancements)),
-      db.select().from(schema.trackerConnections).where(byWs(schema.trackerConnections)),
-      db.select().from(schema.digests).where(byWs(schema.digests)),
-      db.select().from(schema.aiConfigs).where(byWs(schema.aiConfigs)),
-      db.select().from(schema.auditEvents).where(byWs(schema.auditEvents)),
-    ]);
+    // One query at a time. Firing all of them at once on a cold serverless
+    // connection is what stalled the live backup for the full five minutes.
+    const tenants = await db.select().from(schema.tenants).where(eq(schema.tenants.id, ctx.workspace.tenantId));
+    const workspaces = await db.select().from(schema.workspaces).where(eq(schema.workspaces.id, wsId));
+    const workspaceMembers = await db.select().from(schema.workspaceMembers).where(byWs(schema.workspaceMembers));
+    const productAreas = await db.select().from(schema.productAreas).where(byWs(schema.productAreas));
+    const sources = await db.select().from(schema.sources).where(byWs(schema.sources));
+    const themes = await db.select().from(schema.themes).where(byWs(schema.themes));
+    const feedbackItems = await db.select().from(schema.feedbackItems).where(byWs(schema.feedbackItems));
+    const enhancements = await db.select().from(schema.enhancements).where(byWs(schema.enhancements));
+    const trackerConnections = await db.select().from(schema.trackerConnections).where(byWs(schema.trackerConnections));
+    const digests = await db.select().from(schema.digests).where(byWs(schema.digests));
+    const aiConfigs = await db.select().from(schema.aiConfigs).where(byWs(schema.aiConfigs));
+    const auditEvents = await db.select().from(schema.auditEvents).where(byWs(schema.auditEvents));
 
     const memberIds = workspaceMembers.map((m) => m.userId);
     const users = memberIds.length
