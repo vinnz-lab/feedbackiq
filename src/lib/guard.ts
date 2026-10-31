@@ -16,6 +16,9 @@ import { getCurrentUser } from "@/lib/auth";
  *  make another workspace wait. */
 export const AI_COOLDOWN_MS = 15_000;
 export const AI_DAILY_CAP = 25;
+/** A workspace using its OWN key pays for itself, so it isn't held to the
+ *  shared cap. It still has a ceiling of its own, to stop a runaway loop. */
+export const OWN_KEY_DAILY_CAP = 200;
 
 export type AiAction = "ai.classify" | "ai.summarize" | "ai.digest";
 
@@ -62,24 +65,38 @@ export async function guardAiRun(
   action: AiAction,
   workspaceId: string,
   actor: { id: string; name: string },
+  keySource: "workspace" | "platform" = "platform",
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const db = await getDb();
   const ae = schema.auditEvents;
 
   const dayAgo = new Date(Date.now() - 24 * 3600 * 1000);
-  // Shared allowance: count this action across ALL workspaces.
-  const allRecent = await db
-    .select({ createdAt: ae.createdAt, workspaceId: ae.workspaceId })
+  const all = await db
+    .select({ createdAt: ae.createdAt, workspaceId: ae.workspaceId, after: ae.after })
     .from(ae)
     .where(and(eq(ae.action, action), gt(ae.createdAt, dayAgo)))
     .orderBy(desc(ae.createdAt));
-  const recent = allRecent.filter((r) => r.workspaceId === workspaceId);
+  const sourceOf = (a: unknown) => ((a as { keySource?: string } | null)?.keySource === "workspace" ? "workspace" : "platform");
+  const recent = all.filter((r) => r.workspaceId === workspaceId);
 
-  if (allRecent.length >= AI_DAILY_CAP) {
-    return {
-      ok: false,
-      error: `Daily AI limit reached (${AI_DAILY_CAP} runs in 24h). This protects your AI quota and budget — try again later.`,
-    };
+  if (keySource === "platform") {
+    // Shared allowance on the platform key: every workspace's platform-key runs count.
+    const shared = all.filter((r) => sourceOf(r.after) === "platform").length;
+    if (shared >= AI_DAILY_CAP) {
+      return {
+        ok: false,
+        error: `Daily AI limit reached (${AI_DAILY_CAP} runs in 24h). This protects your AI quota and budget — try again later.`,
+      };
+    }
+  } else {
+    // Own key: only this workspace's own-key runs count, against its own ceiling.
+    const own = recent.filter((r) => sourceOf(r.after) === "workspace").length;
+    if (own >= OWN_KEY_DAILY_CAP) {
+      return {
+        ok: false,
+        error: `Daily AI limit reached for this workspace (${OWN_KEY_DAILY_CAP} runs in 24h). Try again later.`,
+      };
+    }
   }
 
   const last = recent[0]?.createdAt;
@@ -97,6 +114,7 @@ export async function guardAiRun(
     actorLabel: actor.name,
     action,
     entityType: "ai_run",
+    after: { keySource },
   });
   return { ok: true };
 }

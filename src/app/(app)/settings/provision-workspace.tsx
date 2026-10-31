@@ -73,6 +73,11 @@ export function ProvisionWorkspace({
           </div>
         </Field>
 
+        <label className="flex items-center gap-2 text-[12.5px] sm:col-span-2">
+          <input type="checkbox" name="allowPlatformKey" defaultChecked className="h-4 w-4 accent-[var(--indigo)]" />
+          Let them use your AI key (you pay for their AI use). Untick if they must add their own.
+        </label>
+
         <div className="sm:col-span-2">
           {state.error && (
             <div className="mb-2 rounded-[8px] px-3 py-2 text-[12px]" style={{ background: "var(--rose-soft)", color: "var(--rose)" }}>

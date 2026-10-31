@@ -38,7 +38,15 @@ export async function listProvisioned(adminUserId: string) {
         .groupBy(schema.workspaceMembers.userId);
       onlyHere = counts.filter((c) => Number(c.n) === 1 && c.userId !== adminUserId).length;
     }
+    // Billing-relevant facts only: whether it may use your key, and whether it has its own.
+    const [ai] = await db
+      .select({ allow: schema.workspaceAiSettings.allowPlatformKey, own: schema.workspaceAiSettings.keyLast4 })
+      .from(schema.workspaceAiSettings)
+      .where(eq(schema.workspaceAiSettings.workspaceId, r.workspaceId))
+      .limit(1);
     out.push({
+      allowPlatformKey: ai?.allow ?? true,
+      hasOwnKey: Boolean(ai?.own),
       workspaceId: r.workspaceId,
       name: r.name,
       owner: (r.after as { owner?: string } | null)?.owner ?? "",

@@ -1,5 +1,7 @@
 "use server";
 
+import { withWorkspaceAi } from "@/lib/ai/with-workspace-ai";
+import { currentAiKey } from "@/lib/ai/ai-context";
 import { revalidatePath } from "next/cache";
 import { and, count, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { getDb, schema } from "@/db";
@@ -47,7 +49,7 @@ export type AiRunResult = {
  * when NOTHING succeeded, so a run that classified 5 of 40 items looked like a
  * clean success and left 35 stuck on "Awaiting AI" with no explanation.
  */
-export async function runAiAnalysis(itemIds?: string[]): Promise<AiRunResult> {
+async function runAiAnalysisInner(itemIds?: string[]): Promise<AiRunResult> {
   const started = Date.now();
   try {
     const ctx = await requireWorkspace();
@@ -55,7 +57,7 @@ export async function runAiAnalysis(itemIds?: string[]): Promise<AiRunResult> {
     const ws = ctx.workspace;
     const db = await getDb();
 
-    const gate = await guardAiRun("ai.classify", ws.id, user);
+    const gate = await guardAiRun("ai.classify", ws.id, user, currentAiKey()?.source ?? "platform");
     if (!gate.ok) return { processed: 0, failed: 0, remaining: 0, error: gate.error };
 
     const themeRows = await db
@@ -382,4 +384,9 @@ export async function runAiAnalysis(itemIds?: string[]): Promise<AiRunResult> {
   } catch (e) {
     return { processed: 0, failed: 0, remaining: 0, error: (e as Error).message };
   }
+}
+
+/** Runs on the current workspace's AI key (see lib/ai/with-workspace-ai.ts). */
+export async function runAiAnalysis(itemIds?: string[]): Promise<AiRunResult> {
+  return withWorkspaceAi((error) => ({ processed: 0, failed: 0, remaining: 0, error }), () => runAiAnalysisInner(itemIds));
 }

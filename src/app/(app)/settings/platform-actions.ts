@@ -93,6 +93,11 @@ export async function provisionWorkspace(
               .returning({ id: schema.users.id })
           )[0].id;
         await tx.insert(schema.workspaceMembers).values({ workspaceId: ws.id, userId, role: "owner" });
+        await tx.insert(schema.workspaceAiSettings).values({
+          workspaceId: ws.id,
+          allowPlatformKey: formData.get("allowPlatformKey") === "on",
+          updatedBy: ctx.user.id,
+        });
         workspaceId = ws.id;
       });
     } catch (e) {
@@ -241,6 +246,51 @@ export async function removeProvisionedWorkspace(
         (!removeSignins && orphans.length ? ` ${orphans.length} ${orphans.length === 1 ? "person now has" : "people now have"} no workspace; their sign-in still exists.` : "") +
         signinNote,
     };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}
+
+/**
+ * Whether a workspace you set up may use YOUR AI key. Platform owner only, and
+ * only for workspaces they set up. Turning it off means that workspace's AI
+ * stops until its owner adds their own key (they're told so in Settings).
+ */
+export async function setPlatformKeyAllowed(workspaceId: string, allowed: boolean): Promise<{ error?: string }> {
+  try {
+    const ctx = await requireWorkspace();
+    if (!isPlatformAdmin(ctx.user.email)) return { error: "Only the platform owner can do this." };
+    if (!/^[0-9a-f-]{36}$/i.test(workspaceId)) return { error: "No workspace selected." };
+    const db = await getDb();
+    const [setUp] = await db
+      .select({ id: schema.auditEvents.id })
+      .from(schema.auditEvents)
+      .where(
+        and(
+          eq(schema.auditEvents.workspaceId, workspaceId),
+          eq(schema.auditEvents.action, "workspace.provisioned"),
+          eq(schema.auditEvents.actorId, ctx.user.id),
+        ),
+      )
+      .limit(1);
+    if (!setUp) return { error: "You can only change workspaces you set up." };
+    await db
+      .insert(schema.workspaceAiSettings)
+      .values({ workspaceId, allowPlatformKey: Boolean(allowed), updatedBy: ctx.user.id })
+      .onConflictDoUpdate({
+        target: schema.workspaceAiSettings.workspaceId,
+        set: { allowPlatformKey: Boolean(allowed), updatedBy: ctx.user.id, updatedAt: new Date() },
+      });
+    await logAudit({
+      workspaceId,
+      actorId: ctx.user.id,
+      actorLabel: ctx.user.name,
+      action: allowed ? "ai.platform_key_allowed" : "ai.platform_key_blocked",
+      entityType: "workspace",
+      entityId: workspaceId,
+    });
+    revalidatePath("/settings");
+    return {};
   } catch (e) {
     return { error: (e as Error).message };
   }

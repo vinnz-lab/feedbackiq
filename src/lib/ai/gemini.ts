@@ -1,6 +1,14 @@
+import { createHash } from "node:crypto";
+import { currentAiKey } from "./ai-context";
+
 /**
  * Minimal Gemini client via REST (no SDK dependency).
- * Key lives in GEMINI_API_KEY (env only — never in source or chat).
+ *
+ * Which key: the one set for the current AI action with withAiKey() (the
+ * workspace's own key, or the platform key it's allowed to use). Only with no
+ * such context — tests and scripts — does it fall back to GEMINI_API_KEY.
+ * Pacing is tracked PER KEY: each key has its own quota, so one workspace's
+ * heavy run never slows down another's.
  *
  * Two behaviours matter on the free tier, and both live here so every caller
  * (classify / summarise / digest) gets them automatically:
@@ -27,11 +35,23 @@ const BASE_INTERVAL_MS = Math.ceil(60_000 / RPM);
 const MAX_INTERVAL_MS = 20_000;
 const MAX_ATTEMPTS = 3;
 
-/** Self-tuning pacing: sustained 429s widen the gap for the rest of the run
+/** Self-tuning pacing, one lane per key: sustained 429s widen that key's gap
  *  instead of hammering a limit we already know we've hit. */
-let interval = BASE_INTERVAL_MS;
-let lastCallAt = 0;
-let chain: Promise<unknown> = Promise.resolve();
+type Lane = { interval: number; lastCallAt: number; chain: Promise<unknown> };
+const lanes = new Map<string, Lane>();
+function laneFor(key: string): Lane {
+  // Keyed by a hash, so the key itself isn't kept as a map key in memory dumps.
+  const id = createHash("sha256").update(key).digest("hex").slice(0, 16);
+  let lane = lanes.get(id);
+  if (!lane) {
+    lane = { interval: BASE_INTERVAL_MS, lastCallAt: 0, chain: Promise.resolve() };
+    lanes.set(id, lane);
+  }
+  return lane;
+}
+function activeKey(): string | undefined {
+  return currentAiKey()?.key ?? process.env.GEMINI_API_KEY;
+}
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -97,10 +117,11 @@ export function parseThrottle(body: string): {
 }
 
 async function callOnce(prompt: string, key: string) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${key}`;
+  // Key in a header, not the URL, so it can't end up in request logs.
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
   const res = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "x-goog-api-key": key },
     body: JSON.stringify({
       contents: [{ parts: [{ text: prompt }] }],
       generationConfig: { responseMimeType: "application/json", temperature: 0.2 },
@@ -126,23 +147,24 @@ async function callOnce(prompt: string, key: string) {
 }
 
 export async function geminiJson(prompt: string): Promise<Record<string, unknown>> {
-  const key = process.env.GEMINI_API_KEY;
+  const key = activeKey();
   if (!key) throw new Error("GEMINI_API_KEY is not set");
+  const lane = laneFor(key);
 
   // Queue behind any in-flight call so the pacing gap is honoured even when
   // callers fire concurrently.
-  const run = chain.then(async () => {
+  const run = lane.chain.then(async () => {
     let lastErr: unknown;
 
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-      const wait = Math.max(0, lastCallAt + interval - Date.now());
+      const wait = Math.max(0, lane.lastCallAt + lane.interval - Date.now());
       if (wait > 0) await sleep(wait);
-      lastCallAt = Date.now();
+      lane.lastCallAt = Date.now();
 
       try {
         const out = await callOnce(prompt, key);
         // Ease back toward the base rate after a clean call.
-        interval = Math.max(BASE_INTERVAL_MS, Math.floor(interval * 0.9));
+        lane.interval = Math.max(BASE_INTERVAL_MS, Math.floor(lane.interval * 0.9));
         return out;
       } catch (e) {
         lastErr = e;
@@ -152,11 +174,11 @@ export async function geminiJson(prompt: string): Promise<Record<string, unknown
         // just burns time and makes the failure slower to report.
         if (e.scope === "day") throw e;
 
-        interval = Math.min(MAX_INTERVAL_MS, Math.ceil(interval * 1.5));
+        lane.interval = Math.min(MAX_INTERVAL_MS, Math.ceil(lane.interval * 1.5));
         if (attempt < MAX_ATTEMPTS) {
           // Prefer Google's own retry hint over guessing at the backoff.
           const hinted = e.retryAfterSeconds ? e.retryAfterSeconds * 1000 : 0;
-          await sleep(Math.min(MAX_INTERVAL_MS, Math.max(hinted, interval * attempt)));
+          await sleep(Math.min(MAX_INTERVAL_MS, Math.max(hinted, lane.interval * attempt)));
         }
       }
     }
@@ -164,7 +186,7 @@ export async function geminiJson(prompt: string): Promise<Record<string, unknown
   });
 
   // Keep the chain alive regardless of this call's outcome.
-  chain = run.then(
+  lane.chain = run.then(
     () => undefined,
     () => undefined,
   );
@@ -173,5 +195,9 @@ export async function geminiJson(prompt: string): Promise<Record<string, unknown
 
 /** Current pacing gap, so batch jobs can budget how many items fit in a run. */
 export function currentIntervalMs() {
-  return interval;
+  const key = activeKey();
+  return key ? laneFor(key).interval : BASE_INTERVAL_MS;
 }
+
+/** The model the app uses, so a key can be checked against it. */
+export const GEMINI_MODEL = MODEL;

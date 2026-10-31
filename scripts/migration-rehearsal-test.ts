@@ -48,6 +48,15 @@ async function main() {
   const members2 = await one(`SELECT count(*) n FROM workspace_members`);
   check("…and memberships are unchanged", Number(members2[0].n) === 2);
 
+  // 3b. 0002: per-workspace AI settings. Adds a table, changes nothing else.
+  await run("drizzle/0002_workspace_ai_settings.sql");
+  const ai = await one(`SELECT count(*) n FROM workspace_ai_settings`);
+  check("0002 adds the AI settings table, empty (every workspace keeps using the platform key)", Number(ai[0].n) === 0);
+  const rls = await one(`SELECT relrowsecurity FROM pg_class WHERE relname = 'workspace_ai_settings'`);
+  check("0002 switches on row-level security for it", rls[0].relrowsecurity === true);
+  const after2 = await one(`SELECT (SELECT count(*) FROM feedback_items) items, (SELECT count(*) FROM themes) themes, (SELECT count(*) FROM users) users`);
+  check("0002 changes no existing data", JSON.stringify(after2) === JSON.stringify(after));
+
   // 4. The OLD app code still works on the new database (the window between
   //    running the SQL and the new code going live).
   const oldStyle = await one(`SELECT id FROM workspaces LIMIT 1`);

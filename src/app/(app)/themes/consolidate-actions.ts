@@ -1,5 +1,7 @@
 "use server";
 
+import { withWorkspaceAi } from "@/lib/ai/with-workspace-ai";
+import { currentAiKey } from "@/lib/ai/ai-context";
 import { revalidatePath } from "next/cache";
 import { and, count, eq } from "drizzle-orm";
 import { getDb, schema } from "@/db";
@@ -19,14 +21,14 @@ export type ReviewResult = {
  * Asks the AI which themes describe the same problem. Proposes only — nothing
  * is changed until a person approves a group.
  */
-export async function reviewThemes(): Promise<ReviewResult> {
+async function reviewThemesInner(): Promise<ReviewResult> {
   try {
     const ctx = await requireWorkspace();
     const user = ctx.user;
     const ws = ctx.workspace;
     const db = await getDb();
 
-    const gate = await guardAiRun("ai.summarize", ws.id, user);
+    const gate = await guardAiRun("ai.summarize", ws.id, user, currentAiKey()?.source ?? "platform");
     if (!gate.ok) return { proposals: [], themeCount: 0, error: gate.error };
 
     const themes = await db.select().from(schema.themes).where(eq(schema.themes.workspaceId, ws.id));
@@ -150,4 +152,9 @@ export async function applyMerge(themeIds: string[], canonicalTitle: string): Pr
     }
     return { ok: false, error: msg };
   }
+}
+
+/** Runs on the current workspace's AI key (see lib/ai/with-workspace-ai.ts). */
+export async function reviewThemes(): Promise<ReviewResult> {
+  return withWorkspaceAi((error) => ({ proposals: [], themeCount: 0, error }), () => reviewThemesInner());
 }

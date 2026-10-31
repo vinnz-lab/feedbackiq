@@ -10,6 +10,9 @@ import { WorkspaceDetails } from "./workspace-details";
 import { DeleteWorkspace } from "./delete-workspace";
 import { ProvisionWorkspace } from "./provision-workspace";
 import { AccountPassword } from "./account-password";
+import { AiConnection } from "./ai-connection";
+import { getAiKeyStatus } from "@/lib/ai/workspace-key";
+import { canEncrypt } from "@/lib/secret-box";
 import { isPlatformAdmin } from "@/lib/platform";
 import { listProvisioned } from "@/lib/platform-data";
 import { and, count, eq } from "drizzle-orm";
@@ -46,6 +49,7 @@ export default async function SettingsPage() {
     };
   }
   const others = users.filter((u) => u.id !== me.id).map((u) => u.name);
+  const aiStatus = await getAiKeyStatus(ctx.workspace.id);
   const platformAdmin = isPlatformAdmin(me.email);
   const provisioned = platformAdmin
     ? (await listProvisioned(me.id)).map((p) => ({ ...p, createdAt: p.createdAt.toISOString() }))
@@ -65,6 +69,12 @@ export default async function SettingsPage() {
       />
 
       {platformAdmin && <ProvisionWorkspace provisioned={provisioned} />}
+
+      <AiConnection
+        status={{ ...aiStatus, updatedAt: aiStatus.updatedAt ? aiStatus.updatedAt.toISOString() : null }}
+        isOwner={isOwner}
+        canSave={canEncrypt()}
+      />
 
       {isOwner && (
         <WorkspaceDetails name={ctx.workspace.name} description={ctx.workspace.description ?? ""} />

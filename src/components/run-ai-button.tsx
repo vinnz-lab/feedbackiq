@@ -51,7 +51,9 @@ export function RunAiButton({
             setWarn(Boolean(r.error) || r.failed > 0);
             setMsg(
               r.error
-                ? `${summary} — ${r.error}`
+                ? parts.length
+                  ? `${summary} — ${r.error}`
+                  : r.error.charAt(0).toUpperCase() + r.error.slice(1) // nothing ran: the reason is the whole story
                 : r.remaining
                   ? `${summary} — run again to continue`
                   : summary,

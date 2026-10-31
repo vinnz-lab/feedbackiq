@@ -1,7 +1,8 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { removeProvisionedWorkspace, type RemoveProvisionedState } from "./platform-actions";
+import { removeProvisionedWorkspace, setPlatformKeyAllowed, type RemoveProvisionedState } from "./platform-actions";
+import { useTransition } from "react";
 
 export type ProvisionedRow = {
   workspaceId: string;
@@ -10,12 +11,17 @@ export type ProvisionedRow = {
   createdAt: string;
   memberCount: number;
   onlyHere: number;
+  allowPlatformKey: boolean;
+  hasOwnKey: boolean;
 };
 
 /** One row of "Workspaces you've set up", with an inline, guarded Remove. */
 export function ProvisionedItem({ p, onRemoved }: { p: ProvisionedRow; onRemoved: (message: string) => void }) {
   const [open, setOpen] = useState(false);
   const [typed, setTyped] = useState("");
+  const [allowed, setAllowed] = useState(p.allowPlatformKey);
+  const [keyError, setKeyError] = useState<string | null>(null);
+  const [toggling, startToggle] = useTransition();
   const [removeSignins, setRemoveSignins] = useState(true);
   // The success message is handed up the moment the server replies. The same
   // reply refreshes the list, which removes this row, so anything done later
@@ -33,7 +39,34 @@ export function ProvisionedItem({ p, onRemoved }: { p: ProvisionedRow; onRemoved
       <div className="flex items-center gap-3">
         <span className="font-medium">{p.name}</span>
         <span className="text-muted">{p.owner}</span>
-        <span className="ml-auto text-[11.5px] text-muted">{new Date(p.createdAt).toLocaleDateString("en-GB")}</span>
+        {p.hasOwnKey && (
+          <span className="rounded-[var(--radius-pill)] px-2 py-0.5 text-[10.5px] font-bold" style={{ background: "var(--emerald-soft)", color: "var(--emerald)" }}>
+            OWN AI KEY
+          </span>
+        )}
+        <label className="ml-auto flex items-center gap-1.5 text-[11.5px] text-muted" title="Whether this workspace may use your AI key">
+          <input
+            type="checkbox"
+            checked={allowed}
+            disabled={toggling}
+            aria-label={`${p.name} may use your AI key`}
+            onChange={(e) => {
+              const next = e.target.checked;
+              setKeyError(null);
+              setAllowed(next); // show it straight away; undo if the server refuses
+              startToggle(async () => {
+                const r = await setPlatformKeyAllowed(p.workspaceId, next);
+                if (r.error) {
+                  setAllowed(!next);
+                  setKeyError(r.error);
+                }
+              });
+            }}
+            className="h-3.5 w-3.5 accent-[var(--indigo)]"
+          />
+          Uses your AI key
+        </label>
+        <span className="text-[11.5px] text-muted">{new Date(p.createdAt).toLocaleDateString("en-GB")}</span>
         {!open && (
           <button
             type="button"
@@ -46,6 +79,7 @@ export function ProvisionedItem({ p, onRemoved }: { p: ProvisionedRow; onRemoved
         )}
       </div>
 
+      {keyError && <div className="mt-1 text-[11.5px] text-rose">⚠ {keyError}</div>}
       {open && (
         <form action={action} className="mt-2 flex flex-col gap-2 rounded-[10px] border border-[var(--rose)] bg-bg p-3">
           <input type="hidden" name="workspaceId" value={p.workspaceId} />
