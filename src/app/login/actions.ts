@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { sql } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { COOKIE } from "@/lib/auth";
+import { WS_COOKIE } from "@/lib/workspace";
 import { authMode } from "@/lib/supabase/env";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -67,5 +68,6 @@ export async function signOut() {
   }
   const jar = await cookies();
   jar.delete(COOKIE);
+  jar.delete(WS_COOKIE);
   redirect("/login");
 }

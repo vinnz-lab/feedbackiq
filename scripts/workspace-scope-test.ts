@@ -67,5 +67,14 @@ const ws = strip(readFileSync("src/lib/workspace.ts", "utf8"));
 check("the workspace cookie is only honoured if the user is a member", /memberships\.find\(\(m\) => m\.workspace\.id === wanted\)/.test(ws));
 check("there is no 'see every workspace' bypass", !/role\s*===\s*["']admin["']|seeAll|allWorkspaces/.test(ws));
 
+const wa = strip(readFileSync("src/app/(app)/workspace-actions.ts", "utf8"));
+const fn = (name: string) => wa.slice(wa.indexOf(`function ${name}`), wa.indexOf("export", wa.indexOf(`function ${name}`) + 10));
+check("only the platform owner can create a workspace", /isPlatformAdmin\(ctx\.user\.email\)/.test(fn("createWorkspace")));
+check("switching only opens a workspace you're a member of", /ctx\.memberships\.find/.test(fn("switchWorkspace")) && /aren't a member/.test(fn("switchWorkspace")));
+check("only a workspace's owner can rename it", /ctx\.role !== "owner"/.test(fn("updateWorkspace")));
+check("renaming only ever touches the CURRENT workspace", /eq\(schema\.workspaces\.id, ctx\.workspace\.id\)/.test(fn("updateWorkspace")));
+const plat = strip(readFileSync("src/lib/platform.ts", "utf8"));
+check("platform owner comes from an env variable, not anything the app can change", /process\.env\.PLATFORM_ADMIN_EMAILS/.test(plat) && !/getDb/.test(plat));
+
 console.log(fail ? `\n${fail} failed` : "\nall passed");
 process.exit(fail ? 1 : 0);

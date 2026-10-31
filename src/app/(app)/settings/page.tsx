@@ -6,6 +6,7 @@ import { getWorkspaceInfo } from "@/lib/workspace-info";
 import { AddTeamMember } from "./add-team-member";
 import { RemoveMember } from "./remove-member";
 import { ClearRegister } from "./clear-register";
+import { WorkspaceDetails } from "./workspace-details";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +25,10 @@ export default async function SettingsPage() {
         <h1 className="text-[30px] font-bold leading-9 tracking-tight">Settings</h1>
         <p className="mt-1 text-[13px] text-muted">Team and access for {info.workspaceName}</p>
       </div>
+
+      {isOwner && (
+        <WorkspaceDetails name={ctx.workspace.name} description={ctx.workspace.description ?? ""} />
+      )}
 
       <section className="mb-6 rounded-[var(--radius-card)] border border-border bg-surface p-5 shadow-[var(--shadow)]">
         <h2 className="text-[15px] font-semibold">Sign-in</h2>

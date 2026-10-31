@@ -5,6 +5,7 @@ import { Topbar } from "@/components/topbar";
 import { getCurrentUser, initials, ROLE_LABEL } from "@/lib/auth";
 import { getWorkspaceInfo } from "@/lib/workspace-info";
 import { getWorkspaceContext } from "@/lib/workspace";
+import { isPlatformAdmin } from "@/lib/platform";
 import { signOut } from "@/app/login/actions";
 import { getDb, schema } from "@/db";
 
@@ -64,6 +65,9 @@ export default async function AppLayout({
     <div className="flex min-h-screen">
       <Sidebar
         reviewCount={n}
+        currentWorkspaceId={ctx.workspace.id}
+        workspaces={ctx.memberships.map((m) => ({ id: m.workspace.id, name: m.workspace.name, sub: m.workspace.description ?? "", role: m.role }))}
+        canCreateWorkspace={isPlatformAdmin(ctx.user.email)}
         tenantName={info.tenantName}
         workspaceName={info.workspaceName}
         workspaceSub={info.workspaceSub}

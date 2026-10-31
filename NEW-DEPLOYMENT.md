@@ -52,3 +52,8 @@ Every database that already runs FeedbackIQ (your main one, and any tester copy)
    It adds one table and gives everyone who can sign in today the same access as before. It changes no existing data.
    Running it a second time just stops with "already exists".
 If the new code goes live first, people see a "No workspace yet" screen (nothing is lost) until the SQL is run.
+
+## Who can create workspaces
+Only the platform owner, set in Vercel as `PLATFORM_ADMIN_EMAILS` (comma-separated emails).
+If that isn't set, `BOOTSTRAP_OWNER_EMAIL` is used. If neither is set, nobody can create workspaces.
+Being the platform owner does not let you see anyone else's workspace.

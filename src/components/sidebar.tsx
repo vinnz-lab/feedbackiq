@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { WorkspaceSwitcher, type SwitcherItem } from "@/components/workspace-switcher";
 import {
   LayoutGrid,
   Tag,
@@ -11,7 +12,6 @@ import {
   Settings,
   Sparkles,
   Plus,
-  ChevronsUpDown,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -30,11 +30,17 @@ const ICONS: Record<string, LucideIcon> = {
 
 export function Sidebar({
   reviewCount = 0,
+  currentWorkspaceId = "",
+  workspaces = [],
+  canCreateWorkspace = false,
   tenantName = "",
   workspaceName = "Workspace",
   workspaceSub = "",
 }: {
   reviewCount?: number;
+  currentWorkspaceId?: string;
+  workspaces?: SwitcherItem[];
+  canCreateWorkspace?: boolean;
   tenantName?: string;
   workspaceName?: string;
   workspaceSub?: string;
@@ -54,15 +60,11 @@ export function Sidebar({
       </div>
       <div className="pl-12 pb-3 text-[12px] text-muted">{tenantName}</div>
 
-      {/* app switcher (static in POC) */}
-      <button className="mx-1 mb-3.5 flex items-center gap-2.5 rounded-lg border border-border bg-surface px-3 py-2.5 text-left shadow-[var(--shadow)] hover:bg-hover">
-        <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: "var(--indigo)" }} />
-        <span className="flex-1">
-          <span className="block text-sm font-semibold leading-tight">{workspaceName}</span>
-          <span className="text-[11.5px] text-muted">{workspaceSub}</span>
-        </span>
-        <ChevronsUpDown size={14} className="text-muted" />
-      </button>
+      <WorkspaceSwitcher
+        current={{ id: currentWorkspaceId, name: workspaceName, sub: workspaceSub, role: "" }}
+        items={workspaces}
+        canCreate={canCreateWorkspace}
+      />
 
       {/* nav */}
       <div className="flex flex-col gap-0.5">
