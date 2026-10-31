@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useCallback, useState } from "react";
 import { provisionWorkspace, type ProvisionState } from "./platform-actions";
+import { ProvisionedItem, type ProvisionedRow } from "./remove-provisioned";
 
 function generatePassword() {
   const alphabet = "abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -14,11 +15,13 @@ function generatePassword() {
 export function ProvisionWorkspace({
   provisioned,
 }: {
-  provisioned: { workspaceId: string; name: string; owner: string; createdAt: string }[];
+  provisioned: ProvisionedRow[];
 }) {
   const [state, action, pending] = useActionState<ProvisionState, FormData>(provisionWorkspace, {});
   const [password, setPassword] = useState("");
   const [copied, setCopied] = useState(false);
+  const [removedNotes, setRemovedNotes] = useState<string[]>([]);
+  const onRemoved = useCallback((m: string) => setRemovedNotes((n) => (n.includes(m) ? n : [...n, m])), []);
   const creds = state.credentials;
   const shareText = creds
     ? `You've been given your own FeedbackIQ workspace, “${creds.workspace}”.\n\nSign in: ${typeof window !== "undefined" ? window.location.origin : ""}/login\nEmail: ${creds.email}\nPassword: ${creds.password}`
@@ -110,16 +113,22 @@ export function ProvisionWorkspace({
         </div>
       </form>
 
+      {removedNotes.map((m, i) => (
+        <div
+          key={i}
+          className="mt-4 rounded-[10px] border px-3.5 py-3 text-[12.5px] font-medium"
+          style={{ background: "var(--emerald-soft)", borderColor: "var(--emerald)", color: "var(--emerald)" }}
+        >
+          ✓ {m}
+        </div>
+      ))}
+
       {provisioned.length > 0 && (
         <div className="mt-5 border-t border-border pt-4">
           <div className="mb-2 text-[12.5px] font-semibold">Workspaces you&apos;ve set up</div>
           <div className="flex flex-col">
             {provisioned.map((p) => (
-              <div key={p.workspaceId} className="flex items-center gap-3 border-b border-border py-2 text-[12.5px] last:border-0">
-                <span className="font-medium">{p.name}</span>
-                <span className="text-muted">{p.owner}</span>
-                <span className="ml-auto text-[11.5px] text-muted">{new Date(p.createdAt).toLocaleDateString("en-GB")}</span>
-              </div>
+              <ProvisionedItem key={p.workspaceId} p={p} onRemoved={onRemoved} />
             ))}
           </div>
           <p className="mt-2 text-[11.5px] text-muted">Names and owners only — their content stays private to them.</p>

@@ -9,6 +9,7 @@ import { ClearRegister } from "./clear-register";
 import { WorkspaceDetails } from "./workspace-details";
 import { DeleteWorkspace } from "./delete-workspace";
 import { ProvisionWorkspace } from "./provision-workspace";
+import { AccountPassword } from "./account-password";
 import { isPlatformAdmin } from "@/lib/platform";
 import { listProvisioned } from "@/lib/platform-data";
 import { and, count, eq } from "drizzle-orm";
@@ -56,6 +57,12 @@ export default async function SettingsPage() {
         <h1 className="text-[30px] font-bold leading-9 tracking-tight">Settings</h1>
         <p className="mt-1 text-[13px] text-muted">Team and access for {info.workspaceName}</p>
       </div>
+
+      <AccountPassword
+        email={me.email}
+        workspaceCount={ctx.memberships.length}
+        supabaseActive={mode === "supabase"}
+      />
 
       {platformAdmin && <ProvisionWorkspace provisioned={provisioned} />}
 

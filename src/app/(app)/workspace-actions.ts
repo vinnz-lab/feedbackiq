@@ -3,11 +3,12 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { count, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { logAudit } from "@/lib/guard";
 import { isPlatformAdmin } from "@/lib/platform";
 import { requireWorkspace, WS_COOKIE } from "@/lib/workspace";
+import { deleteWorkspaceCompletely } from "@/lib/workspace-delete";
 
 const MAX_WS_NAME = 60; // "use server" files may only export async functions
 const COOKIE_OPTS = { httpOnly: true, sameSite: "lax" as const, path: "/", maxAge: 60 * 60 * 24 * 365 };
@@ -144,43 +145,7 @@ export async function deleteWorkspace(
     return { error: "Download a backup first, then tick the box to confirm." };
   }
 
-  const db = await getDb();
-  const n = async (t: { workspaceId: unknown }) =>
-    Number(
-      (
-        await db
-          .select({ n: count() })
-          .from(t as typeof schema.themes)
-          .where(eq((t as typeof schema.themes).workspaceId, ws.id))
-      )[0].n,
-    );
-  const removed = {
-    feedbackItems: await n(schema.feedbackItems as never),
-    themes: await n(schema.themes as never),
-    sources: await n(schema.sources as never),
-    roadmapItems: await n(schema.enhancements as never),
-    digests: await n(schema.digests as never),
-    members: await n(schema.workspaceMembers as never),
-  };
-
-  await db.transaction(async (tx) => {
-    // Children first, so nothing depends on cascade behaviour.
-    await tx.delete(schema.digests).where(eq(schema.digests.workspaceId, ws.id));
-    await tx.delete(schema.enhancements).where(eq(schema.enhancements.workspaceId, ws.id)); // evidence links cascade
-    await tx.delete(schema.feedbackItems).where(eq(schema.feedbackItems.workspaceId, ws.id));
-    await tx.delete(schema.sources).where(eq(schema.sources.workspaceId, ws.id));
-    await tx.delete(schema.themes).where(eq(schema.themes.workspaceId, ws.id));
-    await tx.delete(schema.productAreas).where(eq(schema.productAreas.workspaceId, ws.id));
-    await tx.delete(schema.trackerConnections).where(eq(schema.trackerConnections.workspaceId, ws.id));
-    await tx.delete(schema.aiConfigs).where(eq(schema.aiConfigs.workspaceId, ws.id));
-    await tx.delete(schema.auditEvents).where(eq(schema.auditEvents.workspaceId, ws.id));
-    await tx.delete(schema.workspaceMembers).where(eq(schema.workspaceMembers.workspaceId, ws.id));
-    const gone = await tx
-      .delete(schema.workspaces)
-      .where(eq(schema.workspaces.id, ws.id))
-      .returning({ id: schema.workspaces.id });
-    if (gone.length !== 1) throw new Error("The workspace could not be deleted. Nothing was changed.");
-  });
+  const removed = await deleteWorkspaceCompletely(ws.id);
 
   await logAudit({
     workspaceId: next.workspace.id,

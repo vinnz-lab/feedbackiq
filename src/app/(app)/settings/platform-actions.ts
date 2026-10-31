@@ -1,11 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { sql } from "drizzle-orm";
+import { and, count, eq, sql } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { logAudit } from "@/lib/guard";
 import { isPlatformAdmin } from "@/lib/platform";
 import { requireWorkspace } from "@/lib/workspace";
+import { deleteWorkspaceCompletely } from "@/lib/workspace-delete";
 import { createSupabaseAdminClient, isAdminConfigured } from "@/lib/supabase/admin";
 import { authMode } from "@/lib/supabase/env";
 
@@ -127,6 +128,118 @@ export async function provisionWorkspace(
     return {
       ok: `Created “${wsName}” for ${name}.`,
       credentials: { email, password, workspace: wsName },
+    };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}
+
+export type RemoveProvisionedState = { error?: string; ok?: string };
+
+/**
+ * Removes a workspace the platform owner set up for someone else — WITHOUT
+ * opening it. Only workspaces this person set up (recorded when they did) can
+ * be removed this way, and the exact name must be typed.
+ *
+ * Optionally also removes the sign-ins of people left with no workspace at
+ * all, so a finished tester doesn't keep a login that leads nowhere. Anyone
+ * who still belongs to another workspace keeps their account.
+ */
+export async function removeProvisionedWorkspace(
+  _prev: RemoveProvisionedState,
+  formData: FormData,
+): Promise<RemoveProvisionedState> {
+  try {
+    const ctx = await requireWorkspace();
+    if (!isPlatformAdmin(ctx.user.email)) return { error: "Only the platform owner can do this." };
+
+    const workspaceId = String(formData.get("workspaceId") ?? "");
+    const confirmName = String(formData.get("confirmName") ?? "").trim();
+    const removeSignins = formData.get("removeSignins") === "on";
+    if (!/^[0-9a-f-]{36}$/i.test(workspaceId)) return { error: "No workspace selected." };
+
+    const db = await getDb();
+    // Only ones THIS person set up.
+    const [setUp] = await db
+      .select({ id: schema.auditEvents.id })
+      .from(schema.auditEvents)
+      .where(
+        and(
+          eq(schema.auditEvents.workspaceId, workspaceId),
+          eq(schema.auditEvents.action, "workspace.provisioned"),
+          eq(schema.auditEvents.actorId, ctx.user.id),
+        ),
+      )
+      .limit(1);
+    if (!setUp) return { error: "You can only remove workspaces you set up." };
+    if (workspaceId === ctx.workspace.id) return { error: "Switch to another workspace first." };
+
+    const [ws] = await db
+      .select({ id: schema.workspaces.id, name: schema.workspaces.name })
+      .from(schema.workspaces)
+      .where(eq(schema.workspaces.id, workspaceId))
+      .limit(1);
+    if (!ws) return { error: "That workspace no longer exists." };
+    if (confirmName !== ws.name) return { error: `Type the workspace name exactly — “${ws.name}” — to confirm.` };
+
+    // Who is in it, before it goes.
+    const memberRows = await db
+      .select({ id: schema.users.id, name: schema.users.name, email: schema.users.email })
+      .from(schema.workspaceMembers)
+      .innerJoin(schema.users, eq(schema.workspaceMembers.userId, schema.users.id))
+      .where(eq(schema.workspaceMembers.workspaceId, workspaceId));
+
+    const removed = await deleteWorkspaceCompletely(workspaceId);
+
+    // People now in NO workspace. Never the person doing this.
+    const orphans: typeof memberRows = [];
+    for (const m of memberRows) {
+      if (m.id === ctx.user.id) continue;
+      const [{ n }] = await db
+        .select({ n: count() })
+        .from(schema.workspaceMembers)
+        .where(eq(schema.workspaceMembers.userId, m.id));
+      if (Number(n) === 0) orphans.push(m);
+    }
+
+    let signinNote = "";
+    const removedSignins: string[] = [];
+    if (removeSignins && orphans.length) {
+      for (const o of orphans) {
+        if (authMode() === "supabase" && isAdminConfigured()) {
+          try {
+            const admin = createSupabaseAdminClient();
+            const { data } = await admin.auth.admin.listUsers();
+            const match = data?.users?.find((u) => (u.email ?? "").toLowerCase() === o.email.toLowerCase());
+            if (match) await admin.auth.admin.deleteUser(match.id);
+          } catch (e) {
+            signinNote = ` (some sign-ins may still exist: ${(e as Error).message})`;
+          }
+        }
+        await db.delete(schema.users).where(eq(schema.users.id, o.id));
+        removedSignins.push(o.name);
+      }
+    }
+
+    await logAudit({
+      workspaceId: ctx.workspace.id,
+      actorId: ctx.user.id,
+      actorLabel: ctx.user.name,
+      action: "workspace.removed",
+      entityType: "workspace",
+      entityId: workspaceId,
+      after: { name: ws.name, ...removed, removedSignins },
+    });
+
+    revalidatePath("/settings");
+    const keptCount = memberRows.length - removedSignins.length;
+    return {
+      ok:
+        `Removed “${ws.name}”.` +
+        (removedSignins.length ? ` Sign-ins removed: ${removedSignins.join(", ")}.` : "") +
+        (keptCount > 0 && removeSignins ? ` ${keptCount} ${keptCount === 1 ? "person keeps" : "people keep"} their account (they belong to another workspace).` : "") +
+        (!removeSignins && orphans.length ? ` ${orphans.length} ${orphans.length === 1 ? "person now has" : "people now have"} no workspace; their sign-in still exists.` : "") +
+        signinNote,
     };
   } catch (e) {
     return { error: (e as Error).message };

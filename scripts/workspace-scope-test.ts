@@ -27,6 +27,7 @@ const ALLOW_UNSCOPED: Record<string, string> = {
   "src/lib/themes/rename.ts": "operates on a theme id already verified to be in the workspace",
   "src/app/(app)/register/transcribe-actions.ts": "updates rows taken from a workspace-scoped query",
   "src/app/(app)/settings/team-actions.ts": "counts a user's memberships across workspaces on purpose",
+  "src/lib/workspace-delete.ts": "deletes ONE workspace by id; callers check permission",
   "src/lib/platform-data.ts": "platform owner's list: names/owner/date of workspaces THEY set up, no content",
 };
 const OWNED = ["sources", "themes", "feedbackItems", "enhancements", "digests", "productAreas", "trackerConnections", "aiConfigs", "auditEvents"];
@@ -78,7 +79,7 @@ check("delete: owner only", /ctx\.role !== "owner"/.test(fn("deleteWorkspace")))
 check("delete: never your last workspace (checked on the server)", /if \(!next\) return \{ error/.test(fn("deleteWorkspace")));
 check("delete: exact name required (checked on the server)", /\.trim\(\) !== ws\.name/.test(fn("deleteWorkspace")));
 check("delete: only ever the CURRENT workspace", !/formData\.get\("(workspaceId|id)"\)/.test(fn("deleteWorkspace")));
-check("delete: everything in one transaction", /db\.transaction\(/.test(fn("deleteWorkspace")));
+check("delete: uses the shared all-or-nothing deletion", /deleteWorkspaceCompletely\(ws\.id\)/.test(fn("deleteWorkspace")) && /db\.transaction\(/.test(strip(readFileSync("src/lib/workspace-delete.ts", "utf8"))));
 const pd = strip(readFileSync("src/lib/platform-data.ts", "utf8"));
 check("the 'workspaces you set up' list reads no content from inside them", !/feedbackItems|schema\.themes|schema\.sources|enhancements|digests/.test(pd));
 check("…and only lists ones THIS person set up", /eq\(schema\.auditEvents\.actorId, adminUserId\)/.test(pd));
@@ -86,6 +87,13 @@ const pa = strip(readFileSync("src/app/(app)/settings/platform-actions.ts", "utf
 check("giving someone a workspace is platform-owner only", /isPlatformAdmin\(ctx\.user\.email\)/.test(pa));
 check("the platform owner is NOT made a member of it", (pa.match(/insert\(schema\.workspaceMembers\)/g) ?? []).length === 1 && !/userId:\s*ctx\.user\.id/.test(pa));
 check("it gets its own organisation", /insert\(schema\.tenants\)/.test(pa));
+const rp = pa.slice(pa.indexOf("function removeProvisionedWorkspace"));
+check("removing a tester workspace: platform owner only", /isPlatformAdmin\(ctx\.user\.email\)/.test(rp));
+check("…only ones THIS person set up", /eq\(schema\.auditEvents\.actorId, ctx\.user\.id\)/.test(rp) && /You can only remove workspaces you set up/.test(rp));
+check("…exact name required", /confirmName !== ws\.name/.test(rp));
+check("…never deletes the remover's own account", /if \(m\.id === ctx\.user\.id\) continue/.test(rp));
+check("…only removes sign-ins of people left with NO workspace", /Number\(n\) === 0\) orphans\.push/.test(rp));
+check("…reads no content from inside it", !/feedbackItems|schema\.themes|schema\.sources/.test(rp));
 const plat = strip(readFileSync("src/lib/platform.ts", "utf8"));
 check("platform owner comes from an env variable, not anything the app can change", /process\.env\.PLATFORM_ADMIN_EMAILS/.test(plat) && !/getDb/.test(plat));
 
