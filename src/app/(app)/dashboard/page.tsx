@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { eq, count } from "drizzle-orm";
+import { and, eq, count } from "drizzle-orm";
+import { currentWorkspaceId } from "@/lib/workspace";
 import { getDb, schema } from "@/db";
 import { getWorkspaceInfo } from "@/lib/workspace-info";
 import { getCurrentUser } from "@/lib/auth";
@@ -26,25 +27,32 @@ export default async function DashboardPage() {
   const info = await getWorkspaceInfo();
   const me = await getCurrentUser();
   const firstName = (me?.name ?? "").split(" ")[0] || "there";
+  const wsId = await currentWorkspaceId();
   const db = await getDb();
   const fi = schema.feedbackItems;
 
   const [{ n: totalItems }] = await db
     .select({ n: count() })
     .from(fi)
-    .where(eq(fi.reviewStatus, "approved"));
-  const [{ n: themeCount }] = await db.select({ n: count() }).from(schema.themes);
-  const [{ n: sourceCount }] = await db.select({ n: count() }).from(schema.sources);
+    .where(and(eq(fi.workspaceId, wsId), eq(fi.reviewStatus, "approved")));
+  const [{ n: themeCount }] = await db
+    .select({ n: count() })
+    .from(schema.themes)
+    .where(eq(schema.themes.workspaceId, wsId));
+  const [{ n: sourceCount }] = await db
+    .select({ n: count() })
+    .from(schema.sources)
+    .where(eq(schema.sources.workspaceId, wsId));
   const [{ n: needsReview }] = await db
     .select({ n: count() })
     .from(fi)
-    .where(eq(fi.reviewStatus, "needs_review"));
+    .where(and(eq(fi.workspaceId, wsId), eq(fi.reviewStatus, "needs_review")));
 
-  const themes = await db.select().from(schema.themes);
+  const themes = await db.select().from(schema.themes).where(eq(schema.themes.workspaceId, wsId));
   const counts = await db
     .select({ themeId: fi.themeId, sentiment: fi.sentiment, n: count() })
     .from(fi)
-    .where(eq(fi.reviewStatus, "approved"))
+    .where(and(eq(fi.workspaceId, wsId), eq(fi.reviewStatus, "approved")))
     .groupBy(fi.themeId, fi.sentiment);
 
   const map = new Map<string, Breakdown>();
@@ -56,8 +64,8 @@ export default async function DashboardPage() {
     map.set(r.themeId, m);
   }
 
-  const trends = await loadTrends();
-  const facets = await loadFacets();
+  const trends = await loadTrends(wsId);
+  const facets = await loadFacets(wsId);
   const missingSummaries = themes.filter((t) => !t.summary).length;
   const top = themes
     .map((t) => ({ t, c: map.get(t.id) ?? { Positive: 0, Neutral: 0, Negative: 0, total: 0 } }))

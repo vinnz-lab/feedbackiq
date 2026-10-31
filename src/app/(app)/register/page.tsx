@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { eq, desc, count } from "drizzle-orm";
+import { and, eq, desc, count } from "drizzle-orm";
+import { currentWorkspaceId } from "@/lib/workspace";
 import { getDb, schema } from "@/db";
 import {
   TypePill,
@@ -54,9 +55,10 @@ export default async function RegisterPage({
   const db = await getDb();
   const fi = schema.feedbackItems;
 
-  const [{ n: itemsN }] = await db.select({ n: count() }).from(fi).where(eq(fi.reviewStatus, "approved"));
-  const [{ n: reviewN }] = await db.select({ n: count() }).from(fi).where(eq(fi.reviewStatus, "needs_review"));
-  const [{ n: sourcesN }] = await db.select({ n: count() }).from(schema.sources);
+  const wsId = await currentWorkspaceId();
+  const [{ n: itemsN }] = await db.select({ n: count() }).from(fi).where(and(eq(fi.workspaceId, wsId), eq(fi.reviewStatus, "approved")));
+  const [{ n: reviewN }] = await db.select({ n: count() }).from(fi).where(and(eq(fi.workspaceId, wsId), eq(fi.reviewStatus, "needs_review")));
+  const [{ n: sourcesN }] = await db.select({ n: count() }).from(schema.sources).where(eq(schema.sources.workspaceId, wsId));
 
   const tabs = [
     { key: "items", label: `All items · ${itemsN}` },
@@ -99,6 +101,7 @@ export default async function RegisterPage({
 }
 
 async function ItemsTab() {
+  const wsId = await currentWorkspaceId();
   const db = await getDb();
   const fi = schema.feedbackItems;
   const rows = await db
@@ -120,7 +123,7 @@ async function ItemsTab() {
     .from(fi)
     .leftJoin(schema.sources, eq(fi.sourceId, schema.sources.id))
     .leftJoin(schema.themes, eq(fi.themeId, schema.themes.id))
-    .where(eq(fi.reviewStatus, "approved"))
+    .where(and(eq(fi.workspaceId, wsId), eq(fi.reviewStatus, "approved")))
     .orderBy(desc(fi.createdAt));
 
   const unanalysed = rows.filter((r) => !r.type).length;
@@ -172,6 +175,7 @@ async function ItemsTab() {
 }
 
 async function ReviewTab() {
+  const wsId = await currentWorkspaceId();
   const db = await getDb();
   const fi = schema.feedbackItems;
   const rows = await db
@@ -194,12 +198,13 @@ async function ReviewTab() {
     .from(fi)
     .leftJoin(schema.sources, eq(fi.sourceId, schema.sources.id))
     .leftJoin(schema.themes, eq(fi.themeId, schema.themes.id))
-    .where(eq(fi.reviewStatus, "needs_review"))
+    .where(and(eq(fi.workspaceId, wsId), eq(fi.reviewStatus, "needs_review")))
     .orderBy(desc(fi.createdAt));
 
   const themeList = await db
     .select({ id: schema.themes.id, title: schema.themes.title })
     .from(schema.themes)
+    .where(eq(schema.themes.workspaceId, wsId))
     .orderBy(schema.themes.title);
 
   if (rows.length === 0) {
@@ -235,8 +240,13 @@ async function ReviewTab() {
 }
 
 async function SourcesTab() {
+  const wsId = await currentWorkspaceId();
   const db = await getDb();
-  const rows = await db.select().from(schema.sources).orderBy(desc(schema.sources.createdAt));
+  const rows = await db
+    .select()
+    .from(schema.sources)
+    .where(eq(schema.sources.workspaceId, wsId))
+    .orderBy(desc(schema.sources.createdAt));
   // Only rows with a real transcription job behind them are worth polling —
   // seeded demo rows sit on "processing" with no job id.
   const pendingTranscriptions = rows.filter(

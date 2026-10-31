@@ -30,8 +30,15 @@ async function init(): Promise<DB> {
 }
 
 // Memoize the promise (not the value) so concurrent callers share one instance.
+//
+// Kept on globalThis, not just in this module: Next.js loads pages, server
+// actions and API routes as separate bundles, each with its own copy of this
+// module. Locally that opened the PGlite directory TWICE, and the two copies
+// drifted apart (an action's write invisible to an API route). In production it
+// would have opened one connection pool per bundle. One per process is right.
+const g = globalThis as unknown as { __fiqDb?: Promise<DB> };
 export function getDb(): Promise<DB> {
-  return (_dbPromise ??= init());
+  return (g.__fiqDb ??= _dbPromise ??= init());
 }
 
 export { schema };

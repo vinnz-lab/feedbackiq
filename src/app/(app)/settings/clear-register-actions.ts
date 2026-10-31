@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { count, eq } from "drizzle-orm";
 import { getDb, schema } from "@/db";
-import { requireUser, logAudit } from "@/lib/guard";
+import { logAudit } from "@/lib/guard";
+import { requireWorkspace } from "@/lib/workspace";
 
 export type ClearRegisterState = {
   error?: string;
@@ -27,8 +28,9 @@ export async function clearRegister(
   formData: FormData,
 ): Promise<ClearRegisterState> {
   try {
-    const actor = await requireUser();
-    if (actor.role !== "owner") return { error: "Only the workspace owner can clear the register." };
+    const ctx = await requireWorkspace();
+    const actor = ctx.user;
+    if (ctx.role !== "owner") return { error: "Only the workspace owner can clear the register." };
 
     if (String(formData.get("confirm") ?? "").trim() !== "CLEAR") {
       return { error: "Type CLEAR exactly to confirm." };
@@ -38,9 +40,8 @@ export async function clearRegister(
     }
 
     const db = await getDb();
-    const [ws] = await db.select().from(schema.workspaces).limit(1);
-    if (!ws) return { error: "No workspace found." };
-    const wsId = ws.id;
+    // ONLY the workspace the owner is currently in. Never another one.
+    const wsId = ctx.workspace.id;
 
     const tally = async (table: { workspaceId: unknown }) => {
       const [{ n }] = await db

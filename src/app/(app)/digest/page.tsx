@@ -1,4 +1,5 @@
-import { desc } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
+import { currentWorkspaceId } from "@/lib/workspace";
 import { getDb, schema } from "@/db";
 import { GenerateDigestButton } from "@/components/generate-digest-button";
 
@@ -16,10 +17,12 @@ type Content = {
 };
 
 export default async function DigestPage() {
+  const wsId = await currentWorkspaceId();
   const db = await getDb();
   const [latest] = await db
     .select()
     .from(schema.digests)
+    .where(eq(schema.digests.workspaceId, wsId))
     .orderBy(desc(schema.digests.createdAt))
     .limit(1);
   const c = latest?.content as Content | undefined;

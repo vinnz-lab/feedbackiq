@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { desc, eq } from "drizzle-orm";
+import { currentWorkspaceId } from "@/lib/workspace";
 import { getDb, schema } from "@/db";
 import { computeScore } from "@/lib/score";
 import { RoadmapBoard, type EnhCard } from "@/components/roadmap-board";
@@ -23,6 +24,7 @@ export default async function RoadmapPage({
 }) {
   const { view: rawView } = await searchParams;
   const view = rawView === "board" ? "board" : "backlog";
+  const wsId = await currentWorkspaceId();
   const db = await getDb();
 
   // The linked theme's name is shown live, so a rename or merge can never leave
@@ -31,6 +33,7 @@ export default async function RoadmapPage({
     .select({ e: schema.enhancements, themeTitle: schema.themes.title })
     .from(schema.enhancements)
     .leftJoin(schema.themes, eq(schema.enhancements.themeId, schema.themes.id))
+    .where(eq(schema.enhancements.workspaceId, wsId))
     .orderBy(desc(schema.enhancements.createdAt));
   const enh = rows.map(({ e, themeTitle }) => ({
     id: e.id,

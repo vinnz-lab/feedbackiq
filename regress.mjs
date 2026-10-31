@@ -63,10 +63,22 @@ async function reviewCount() {
 
 const before = await reviewCount();
 if (before > 0) {
-  await page.locator("button", APPROVE).first().click();
+  // Approve an item the AI has already analysed. Un-analysed items are refused
+  // on purpose (they would have no theme), which is checked separately below.
+  const analysed = page.locator("div.rounded-\\[var\\(--radius-card\\)\\]", { hasText: "AI suggests" });
+  await analysed.first().locator("button", APPROVE).click();
   await page.waitForTimeout(3000);
   const after = await reviewCount();
   check("approve mutates data", after === before - 1, `${before} → ${after}`);
+
+  const pending = page.locator("div.rounded-\\[var\\(--radius-card\\)\\]", { hasText: "Not yet analysed by AI" });
+  if (await pending.count()) {
+    await pending.first().locator("button", APPROVE).click();
+    await page.waitForTimeout(2500);
+    // Read the on-card message BEFORE reviewCount(), which reloads the page.
+    const told = (await page.locator("text=Run AI analysis on this first").count()) > 0;
+    check("approving an un-analysed item is refused, with a reason", told && (await reviewCount()) === after);
+  }
 } else {
   check("approve mutates data", false, "no needs-review items — inconclusive");
 }

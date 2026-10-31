@@ -1,4 +1,5 @@
-import { getCurrentUser, listUsers, ROLE_LABEL, initials } from "@/lib/auth";
+import { listMembers, ROLE_LABEL, initials } from "@/lib/auth";
+import { requireWorkspace } from "@/lib/workspace";
 import { authMode } from "@/lib/supabase/env";
 import { isAdminConfigured } from "@/lib/supabase/admin";
 import { getWorkspaceInfo } from "@/lib/workspace-info";
@@ -10,9 +11,12 @@ export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
   const info = await getWorkspaceInfo();
-  const [me, users] = await Promise.all([getCurrentUser(), listUsers()]);
+  const ctx = await requireWorkspace();
+  const me = ctx.user;
+  // Only the people in THIS workspace, with their role here.
+  const users = await listMembers(ctx.workspace.id);
   const mode = authMode();
-  const isOwner = me?.role === "owner";
+  const isOwner = ctx.role === "owner";
 
   return (
     <div className="max-w-3xl">

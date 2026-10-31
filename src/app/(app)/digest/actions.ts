@@ -4,25 +4,26 @@ import { revalidatePath } from "next/cache";
 import { and, desc, eq, count } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { generateDigestAi } from "@/lib/ai/digest";
-import { guardAiRun, requireUser } from "@/lib/guard";
+import { guardAiRun } from "@/lib/guard";
+import { requireWorkspace } from "@/lib/workspace";
 
 export async function generateDigest(): Promise<{ ok: boolean; error?: string }> {
   try {
-    const user = await requireUser();
+    const ctx = await requireWorkspace();
+    const user = ctx.user;
+    const ws = ctx.workspace;
     const db = await getDb();
     const fi = schema.feedbackItems;
-    const [ws] = await db.select().from(schema.workspaces).limit(1);
-    if (!ws) return { ok: false, error: "No workspace found." };
 
     const gate = await guardAiRun("ai.digest", ws.id, user);
     if (!gate.ok) return { ok: false, error: gate.error };
 
     // theme mention counts (approved) + sentiment
-    const themeRows = await db.select().from(schema.themes);
+    const themeRows = await db.select().from(schema.themes).where(eq(schema.themes.workspaceId, ws.id));
     const itemRows = await db
       .select({ themeId: fi.themeId, sentiment: fi.sentiment, quote: fi.quote, type: fi.type, severity: fi.severity, customer: fi.customer, submitter: fi.submitter })
       .from(fi)
-      .where(eq(fi.reviewStatus, "approved"));
+      .where(and(eq(fi.workspaceId, ws.id), eq(fi.reviewStatus, "approved")));
 
     const mentions = new Map<string, number>();
     const sent = { Positive: 0, Neutral: 0, Negative: 0 };
@@ -37,7 +38,10 @@ export async function generateDigest(): Promise<{ ok: boolean; error?: string }>
     const emerging = themeRows.filter((t) => t.isEmerging).map((t) => t.title);
 
     // roadmap status counts
-    const enh = await db.select({ status: schema.enhancements.status }).from(schema.enhancements);
+    const enh = await db
+      .select({ status: schema.enhancements.status })
+      .from(schema.enhancements)
+      .where(eq(schema.enhancements.workspaceId, ws.id));
     const roadmap = { review: 0, planned: 0, progress: 0, shipped: 0 };
     for (const e of enh) if (e.status in roadmap) roadmap[e.status as keyof typeof roadmap]++;
 

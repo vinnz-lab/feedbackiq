@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import {
   formatTranscript,
@@ -9,7 +9,8 @@ import {
   isTranscriptionConfigured,
   speakerCount,
 } from "@/lib/ai/transcribe";
-import { logAudit, requireUser } from "@/lib/guard";
+import { logAudit } from "@/lib/guard";
+import { requireWorkspace } from "@/lib/workspace";
 
 export type PollResult = {
   checked: number;
@@ -30,7 +31,7 @@ export type PollResult = {
 export async function pollTranscriptions(): Promise<PollResult> {
   const out: PollResult = { checked: 0, completed: 0, stillRunning: 0, failed: 0 };
   try {
-    await requireUser();
+    const wsId = (await requireWorkspace()).workspace.id;
     if (!isTranscriptionConfigured()) {
       return { ...out, error: "Transcription is not configured (ASSEMBLYAI_API_KEY)." };
     }
@@ -39,7 +40,7 @@ export async function pollTranscriptions(): Promise<PollResult> {
     const pending = await db
       .select()
       .from(schema.sources)
-      .where(eq(schema.sources.status, "processing"));
+      .where(and(eq(schema.sources.workspaceId, wsId), eq(schema.sources.status, "processing")));
 
     let firstError: string | undefined;
 

@@ -1,12 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { count, eq } from "drizzle-orm";
+import { and, count, eq } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { proposeThemeMerges, type MergeProposal } from "@/lib/ai/consolidate";
 import { GeminiRateLimitError } from "@/lib/ai/gemini";
 import { mergeThemes } from "@/lib/themes/merge";
-import { guardAiRun, requireUser } from "@/lib/guard";
+import { guardAiRun } from "@/lib/guard";
+import { requireWorkspace } from "@/lib/workspace";
 
 export type ReviewResult = {
   proposals: (MergeProposal & { titles: string[] })[];
@@ -20,10 +21,10 @@ export type ReviewResult = {
  */
 export async function reviewThemes(): Promise<ReviewResult> {
   try {
-    const user = await requireUser();
+    const ctx = await requireWorkspace();
+    const user = ctx.user;
+    const ws = ctx.workspace;
     const db = await getDb();
-    const [ws] = await db.select().from(schema.workspaces).limit(1);
-    if (!ws) return { proposals: [], themeCount: 0, error: "No workspace found." };
 
     const gate = await guardAiRun("ai.summarize", ws.id, user);
     if (!gate.ok) return { proposals: [], themeCount: 0, error: gate.error };
@@ -39,7 +40,7 @@ export async function reviewThemes(): Promise<ReviewResult> {
         const [{ n }] = await db
           .select({ n: count() })
           .from(schema.feedbackItems)
-          .where(eq(schema.feedbackItems.themeId, t.id));
+          .where(and(eq(schema.feedbackItems.workspaceId, ws.id), eq(schema.feedbackItems.themeId, t.id)));
         return { id: t.id, title: t.title, mentions: Number(n) };
       }),
     );
@@ -84,7 +85,7 @@ export type ApplyResult = {
 /** Applies one approved group. */
 export async function applyMerge(themeIds: string[], canonicalTitle: string): Promise<ApplyResult> {
   try {
-    await requireUser();
+    const ctx = await requireWorkspace();
     // The name is now editable, so it is checked here too — the form check is
     // only a convenience and can be bypassed.
     const name = canonicalTitle.trim();
@@ -92,8 +93,7 @@ export async function applyMerge(themeIds: string[], canonicalTitle: string): Pr
     if (name.length > 100) return { ok: false, error: "Keep the theme name under 100 characters." };
     canonicalTitle = name;
     const db = await getDb();
-    const [ws] = await db.select().from(schema.workspaces).limit(1);
-    if (!ws) return { ok: false, error: "No workspace found." };
+    const ws = ctx.workspace;
 
     const outcome = await mergeThemes(ws.id, themeIds, canonicalTitle);
 
@@ -112,7 +112,7 @@ export async function applyMerge(themeIds: string[], canonicalTitle: string): Pr
     await db
       .update(schema.themes)
       .set({ summary: null })
-      .where(eq(schema.themes.id, outcome.survivorId));
+      .where(and(eq(schema.themes.workspaceId, ws.id), eq(schema.themes.id, outcome.survivorId)));
     const summaryNote = " Its summary was cleared — hit “Regenerate summaries” when convenient.";
 
     revalidatePath("/themes");

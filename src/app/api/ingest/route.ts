@@ -7,6 +7,7 @@ import {
   quoteKey,
 } from "@/lib/ingest/fingerprint";
 import { getCurrentUser } from "@/lib/auth";
+import { getWorkspaceContext, type Workspace } from "@/lib/workspace";
 import { logAudit } from "@/lib/guard";
 import {
   isTranscriptionConfigured,
@@ -34,10 +35,8 @@ function sourceText(p: ParsedSource): string {
 /** A parsed source plus, for audio, the bytes we still need to send onward. */
 type Incoming = { parsed: ParsedSource; audio?: Buffer; hash: string };
 
-async function persist(incoming: Incoming[], force: boolean) {
+async function persist(ws: Workspace, incoming: Incoming[], force: boolean) {
   const db = await getDb();
-  const [ws] = await db.select().from(schema.workspaces).limit(1);
-  if (!ws) throw new Error("No workspace found");
 
   const summary: {
     filename: string;
@@ -192,6 +191,12 @@ export async function POST(request: Request) {
   if (!user) {
     return Response.json({ error: "Sign in to upload feedback." }, { status: 401 });
   }
+  // Uploads always land in the caller's CURRENT workspace — never chosen by the request.
+  const ctx = await getWorkspaceContext();
+  if (!ctx) {
+    return Response.json({ error: "You don't have access to a workspace yet." }, { status: 403 });
+  }
+  const ws = ctx.workspace;
 
   try {
     const ct = request.headers.get("content-type") || "";
@@ -242,11 +247,9 @@ export async function POST(request: Request) {
     if (!incoming.length) {
       return Response.json({ error: "No files or text provided." }, { status: 400 });
     }
-    const result = await persist(incoming, force);
+    const result = await persist(ws, incoming, force);
 
-    const db = await getDb();
-    const [ws] = await db.select().from(schema.workspaces).limit(1);
-    if (ws) {
+    {
       await logAudit({
         workspaceId: ws.id,
         actorId: user.id,

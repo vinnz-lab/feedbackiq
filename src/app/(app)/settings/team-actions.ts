@@ -1,9 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { count, eq, sql } from "drizzle-orm";
+import { and, count, eq, sql } from "drizzle-orm";
 import { getDb, schema } from "@/db";
-import { requireUser } from "@/lib/guard";
+import { requireWorkspace } from "@/lib/workspace";
 import { createSupabaseAdminClient, isAdminConfigured } from "@/lib/supabase/admin";
 import { authMode } from "@/lib/supabase/env";
 import type { RoleT } from "@/db/schema";
@@ -32,8 +32,9 @@ export async function createTeamMember(
   formData: FormData,
 ): Promise<CreateUserState> {
   try {
-    const actor = await requireUser();
-    if (actor.role !== "owner") return { error: "Only the workspace owner can add people." };
+    const ctx = await requireWorkspace();
+    if (ctx.role !== "owner") return { error: "Only the workspace owner can add people." };
+    const wsId = ctx.workspace.id;
 
     const name = String(formData.get("name") ?? "").trim();
     const email = String(formData.get("email") ?? "").trim().toLowerCase();
@@ -46,11 +47,26 @@ export async function createTeamMember(
 
     const db = await getDb();
     const [existing] = await db
-      .select({ id: schema.users.id })
+      .select({ id: schema.users.id, name: schema.users.name })
       .from(schema.users)
       .where(sql`lower(${schema.users.email}) = lower(${email})`)
       .limit(1);
-    if (existing) return { error: "Someone with that email is already in this workspace." };
+    if (existing) {
+      const [member] = await db
+        .select({ id: schema.workspaceMembers.id })
+        .from(schema.workspaceMembers)
+        .where(and(eq(schema.workspaceMembers.workspaceId, wsId), eq(schema.workspaceMembers.userId, existing.id)))
+        .limit(1);
+      if (member) return { error: "Someone with that email is already in this workspace." };
+      // They already have a sign-in (they belong to another workspace). Add them
+      // here with their existing password rather than creating a second account.
+      await db
+        .insert(schema.workspaceMembers)
+        .values({ workspaceId: wsId, userId: existing.id, role: role as RoleT })
+        .onConflictDoNothing();
+      revalidatePath("/settings");
+      return { ok: `${existing.name} already has an account, so they've been added to this workspace. They sign in with their existing password.` };
+    }
 
     if (authMode() === "supabase") {
       if (!isAdminConfigured()) {
@@ -66,12 +82,14 @@ export async function createTeamMember(
       if (error) return { error: `Could not create the sign-in account: ${error.message}` };
     }
 
-    // Teammates join the inviter's tenant.
-    await db.insert(schema.users).values({
-      tenantId: actor.tenantId,
-      name,
-      email,
-      role: role as RoleT,
+    // The account belongs to this workspace's tenant; access comes from the
+    // membership row, created in the same transaction so neither can exist alone.
+    await db.transaction(async (tx) => {
+      const [u] = await tx
+        .insert(schema.users)
+        .values({ tenantId: ctx.workspace.tenantId, name, email, role: role as RoleT })
+        .returning({ id: schema.users.id });
+      await tx.insert(schema.workspaceMembers).values({ workspaceId: wsId, userId: u.id, role: role as RoleT });
     });
 
     revalidatePath("/settings");
@@ -100,27 +118,46 @@ export async function removeTeamMember(
   formData: FormData,
 ): Promise<RemoveUserState> {
   try {
-    const actor = await requireUser();
-    if (actor.role !== "owner") return { error: "Only the workspace owner can remove people." };
+    const ctx = await requireWorkspace();
+    const actor = ctx.user;
+    if (ctx.role !== "owner") return { error: "Only the workspace owner can remove people." };
+    const wsId = ctx.workspace.id;
 
     const id = String(formData.get("id") ?? "");
     if (!id) return { error: "No person selected." };
     if (id === actor.id) return { error: "You can't remove your own access." };
 
     const db = await getDb();
-    const [target] = await db
-      .select()
-      .from(schema.users)
-      .where(eq(schema.users.id, id))
+    // Only someone who is a member of THIS workspace can be removed from it.
+    const [row] = await db
+      .select({ user: schema.users, role: schema.workspaceMembers.role })
+      .from(schema.workspaceMembers)
+      .innerJoin(schema.users, eq(schema.workspaceMembers.userId, schema.users.id))
+      .where(and(eq(schema.workspaceMembers.workspaceId, wsId), eq(schema.workspaceMembers.userId, id)))
       .limit(1);
-    if (!target) return { error: "That person is no longer in this workspace." };
+    if (!row) return { error: "That person is no longer in this workspace." };
+    const target = row.user;
 
-    if (target.role === "owner") {
+    if (row.role === "owner") {
       const [{ n }] = await db
         .select({ n: count() })
-        .from(schema.users)
-        .where(eq(schema.users.role, "owner"));
+        .from(schema.workspaceMembers)
+        .where(and(eq(schema.workspaceMembers.workspaceId, wsId), eq(schema.workspaceMembers.role, "owner")));
       if (Number(n) <= 1) return { error: "You can't remove the last owner." };
+    }
+
+    await db
+      .delete(schema.workspaceMembers)
+      .where(and(eq(schema.workspaceMembers.workspaceId, wsId), eq(schema.workspaceMembers.userId, id)));
+
+    // If they still belong to another workspace, their account must survive.
+    const [{ n: elsewhere }] = await db
+      .select({ n: count() })
+      .from(schema.workspaceMembers)
+      .where(eq(schema.workspaceMembers.userId, id));
+    if (Number(elsewhere) > 0) {
+      revalidatePath("/settings");
+      return { ok: `Removed ${target.name} from this workspace. Their account stays, because they belong to another workspace.` };
     }
 
     // Best-effort on the Supabase side: if the identity is already gone, the

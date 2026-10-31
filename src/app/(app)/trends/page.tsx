@@ -1,5 +1,6 @@
 import { getWorkspaceInfo } from "@/lib/workspace-info";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
+import { currentWorkspaceId } from "@/lib/workspace";
 import { getDb, schema } from "@/db";
 import { Card, AiText, SentimentBar } from "@/components/ui";
 
@@ -20,6 +21,7 @@ function weekKey(d: Date) {
 
 export default async function TrendsPage() {
   const info = await getWorkspaceInfo();
+  const wsId = await currentWorkspaceId();
   const db = await getDb();
   const fi = schema.feedbackItems;
 
@@ -34,7 +36,7 @@ export default async function TrendsPage() {
     .from(fi)
     .leftJoin(schema.sources, eq(fi.sourceId, schema.sources.id))
     .leftJoin(schema.themes, eq(fi.themeId, schema.themes.id))
-    .where(eq(fi.reviewStatus, "approved"));
+    .where(and(eq(fi.workspaceId, wsId), eq(fi.reviewStatus, "approved")));
 
   // --- aggregates ---
   const sent = { Positive: 0, Neutral: 0, Negative: 0 };

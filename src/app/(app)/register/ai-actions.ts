@@ -8,7 +8,8 @@ import { extractFeedbackItems, SPLIT_THRESHOLD_CHARS } from "@/lib/ai/extract";
 import { quoteKey } from "@/lib/ingest/fingerprint";
 import { findSimilarTitle } from "@/lib/themes/similarity";
 import { currentIntervalMs, GeminiRateLimitError } from "@/lib/ai/gemini";
-import { guardAiRun, logAudit, requireUser } from "@/lib/guard";
+import { guardAiRun, logAudit } from "@/lib/guard";
+import { requireWorkspace } from "@/lib/workspace";
 
 /** Vercel caps a function at 300s (Hobby cannot raise it), so stop well short
  *  and report what's left rather than being killed mid-run. */
@@ -49,19 +50,25 @@ export type AiRunResult = {
 export async function runAiAnalysis(itemIds?: string[]): Promise<AiRunResult> {
   const started = Date.now();
   try {
-    const user = await requireUser();
+    const ctx = await requireWorkspace();
+    const user = ctx.user;
+    const ws = ctx.workspace;
     const db = await getDb();
-    const [ws] = await db.select().from(schema.workspaces).limit(1);
-    if (!ws) return { processed: 0, failed: 0, remaining: 0, error: "No workspace found." };
 
     const gate = await guardAiRun("ai.classify", ws.id, user);
     if (!gate.ok) return { processed: 0, failed: 0, remaining: 0, error: gate.error };
 
     const themeRows = await db
       .select({ id: schema.themes.id, title: schema.themes.title })
-      .from(schema.themes); // mutable — new themes get pushed as we create them
+      .from(schema.themes)
+      // Only THIS workspace's themes are offered to the AI, so feedback can
+      // never be filed under another workspace's theme.
+      .where(eq(schema.themes.workspaceId, ws.id)); // mutable — new themes get pushed as we create them
     const themeByTitle = new Map(themeRows.map((t) => [t.title.toLowerCase(), t.id]));
-    const areas = await db.select({ name: schema.productAreas.name }).from(schema.productAreas);
+    const areas = await db
+      .select({ name: schema.productAreas.name })
+      .from(schema.productAreas)
+      .where(eq(schema.productAreas.workspaceId, ws.id));
     const areaNames = areas.map((a) => a.name);
 
     // Work to do = anything unclassified, PLUS any long source still whole.
@@ -79,6 +86,7 @@ export async function runAiAnalysis(itemIds?: string[]): Promise<AiRunResult> {
     // They sit in the register with no type, sentiment or theme, so they never
     // show up in Themes — approval alone does not analyse anything.
     const needsWork = and(
+      eq(schema.feedbackItems.workspaceId, ws.id),
       scoped,
       or(
         and(
@@ -240,7 +248,7 @@ export async function runAiAnalysis(itemIds?: string[]): Promise<AiRunResult> {
                 ? `split into ${fresh.length} items · ${dupes} already present`
                 : `split into ${fresh.length} items`,
             })
-            .where(eq(schema.feedbackItems.id, parent.id));
+            .where(and(eq(schema.feedbackItems.workspaceId, ws.id), eq(schema.feedbackItems.id, parent.id)));
         });
 
         await logAudit({
@@ -313,7 +321,7 @@ export async function runAiAnalysis(itemIds?: string[]): Promise<AiRunResult> {
             // showing the Awaiting AI chip even though the AI has run.
             reviewReason: c.confidence === "Low" ? "low confidence" : null,
           })
-          .where(eq(schema.feedbackItems.id, it.id));
+          .where(and(eq(schema.feedbackItems.workspaceId, ws.id), eq(schema.feedbackItems.id, it.id)));
         processed++;
         consecutiveThrottles = 0;
         // Pacing + retry are handled centrally in lib/ai/gemini.ts.

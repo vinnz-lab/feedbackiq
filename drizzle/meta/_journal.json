@@ -8,6 +8,13 @@
       "when": 1785187862596,
       "tag": "0000_tranquil_multiple_man",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1793481199557,
+      "tag": "0001_workspace_members",
+      "breakpoints": true
     }
   ]
 }

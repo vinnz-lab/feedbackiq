@@ -14,7 +14,8 @@ const code = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/
 const a = code(actions);
 
 const results: [string, boolean][] = [
-  ["server action is owner-only", /actor\.role !== "owner"/.test(a)],
+  ["server action is owner-only (role in THIS workspace)", /ctx\.role !== "owner"/.test(a)],
+  ["clears ONLY the current workspace", /const wsId = ctx\.workspace\.id/.test(a) && !/from\(schema\.workspaces\)\.limit\(1\)/.test(a)],
   ["requires the typed word CLEAR", /[!=]== "CLEAR"/.test(a)],
   ["requires backup acknowledgement", /formData\.get\("backupDone"\) !== "on"/.test(a)],
   ["deletes inside one transaction", /db\.transaction\(/.test(a)],

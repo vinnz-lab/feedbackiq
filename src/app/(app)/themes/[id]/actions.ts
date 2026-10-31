@@ -1,18 +1,17 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getDb, schema } from "@/db";
-import { logAudit, requireUser } from "@/lib/guard";
+import { logAudit } from "@/lib/guard";
+import { requireWorkspace } from "@/lib/workspace";
 import { renameTheme } from "@/lib/themes/rename";
 
 export type RenameResult = { ok: boolean; title?: string; message?: string; error?: string };
 
 export async function renameThemeAction(themeId: string, title: string): Promise<RenameResult> {
   try {
-    const user = await requireUser();
-    const db = await getDb();
-    const [ws] = await db.select().from(schema.workspaces).limit(1);
-    if (!ws) return { ok: false, error: "No workspace found." };
+    const ctx = await requireWorkspace();
+    const user = ctx.user;
+    const ws = ctx.workspace;
 
     const r = await renameTheme(ws.id, themeId, String(title ?? ""));
     if (!r.ok) return { ok: false, error: r.error };

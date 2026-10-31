@@ -1,4 +1,5 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
+import { currentWorkspaceId } from "@/lib/workspace";
 import { getDb, schema } from "@/db";
 import { ThemeCard, type ThemeAgg } from "@/components/theme-card";
 import { RegenerateSummariesButton } from "@/components/regenerate-summaries-button";
@@ -13,15 +14,21 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 export default async function ThemesPage() {
+  const wsId = await currentWorkspaceId();
   const db = await getDb();
   const fi = schema.feedbackItems;
 
   const info = await getWorkspaceInfo();
-  const trends = await loadTrends();
-  const facets = await loadFacets();
-  const themes = await db.select().from(schema.themes);
+  const trends = await loadTrends(wsId);
+  const facets = await loadFacets(wsId);
+  const themes = await db.select().from(schema.themes).where(eq(schema.themes.workspaceId, wsId));
   const onRoadmap = new Set(
-    (await db.select({ themeId: schema.enhancements.themeId }).from(schema.enhancements))
+    (
+      await db
+        .select({ themeId: schema.enhancements.themeId })
+        .from(schema.enhancements)
+        .where(eq(schema.enhancements.workspaceId, wsId))
+    )
       .map((r) => r.themeId)
       .filter((id): id is string => Boolean(id)),
   );
@@ -29,7 +36,7 @@ export default async function ThemesPage() {
     .select({ themeId: fi.themeId, sentiment: fi.sentiment, kind: schema.sources.kind })
     .from(fi)
     .leftJoin(schema.sources, eq(fi.sourceId, schema.sources.id))
-    .where(eq(fi.reviewStatus, "approved"));
+    .where(and(eq(fi.workspaceId, wsId), eq(fi.reviewStatus, "approved")));
 
   const aggMap = new Map<string, ThemeAgg>();
   for (const r of rows) {
