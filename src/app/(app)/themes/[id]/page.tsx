@@ -17,7 +17,7 @@ import {
 import { mixString } from "@/components/theme-card";
 import { PromoteButton } from "@/components/promote-button";
 import { ThemeTitleEditor } from "@/components/theme-title-editor";
-import { loadTrends } from "@/lib/trend-data";
+import { loadEmerging, loadTrends } from "@/lib/trend-data";
 import { currentWorkspaceId } from "@/lib/workspace";
 
 export const dynamic = "force-dynamic";
@@ -98,7 +98,7 @@ export default async function ThemeDetailPage({
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <ThemeTitleEditor themeId={id} title={theme.title} />
         <TrendChip trend={(await loadTrends(wsId)).get(id)} />
-        {theme.isEmerging && (
+        {(await loadEmerging(wsId)).has(id) && (
           <span className="rounded-[4px] bg-rose px-1.5 py-0.5 text-[9.5px] font-extrabold tracking-wide text-white">EMERGING</span>
         )}
         <div className="ml-auto">

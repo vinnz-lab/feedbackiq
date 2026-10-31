@@ -5,7 +5,7 @@ import { ThemeCard, type ThemeAgg } from "@/components/theme-card";
 import { RegenerateSummariesButton } from "@/components/regenerate-summaries-button";
 import { getWorkspaceInfo } from "@/lib/workspace-info";
 import { loadFacets } from "@/lib/facets-data";
-import { loadTrends } from "@/lib/trend-data";
+import { loadEmerging, loadTrends } from "@/lib/trend-data";
 import { ConsolidateThemes } from "@/components/consolidate-themes";
 
 export const dynamic = "force-dynamic";
@@ -20,6 +20,7 @@ export default async function ThemesPage() {
 
   const info = await getWorkspaceInfo();
   const trends = await loadTrends(wsId);
+  const emerging = await loadEmerging(wsId, trends);
   const facets = await loadFacets(wsId);
   const themes = await db.select().from(schema.themes).where(eq(schema.themes.workspaceId, wsId));
   const onRoadmap = new Set(
@@ -86,7 +87,7 @@ export default async function ThemesPage() {
               sentiment: facets.get(t.id)?.sentiment ?? t.sentiment,
               priority: facets.get(t.id)?.priority ?? t.priority,
               trend: trends.get(t.id),
-              isEmerging: t.isEmerging,
+              isEmerging: emerging.has(t.id),
             }}
           />
         ))}

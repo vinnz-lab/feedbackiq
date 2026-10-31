@@ -8,6 +8,7 @@ import { getDb, schema } from "@/db";
 import { generateDigestAi } from "@/lib/ai/digest";
 import { guardAiRun } from "@/lib/guard";
 import { requireWorkspace } from "@/lib/workspace";
+import { loadEmerging } from "@/lib/trend-data";
 
 async function generateDigestInner(): Promise<{ ok: boolean; error?: string }> {
   try {
@@ -37,7 +38,9 @@ async function generateDigestInner(): Promise<{ ok: boolean; error?: string }> {
       .map((t) => ({ title: t.title, sentiment: t.sentiment, n: mentions.get(t.id) ?? 0 }))
       .sort((a, b) => b.n - a.n)
       .slice(0, 6);
-    const emerging = themeRows.filter((t) => t.isEmerging).map((t) => t.title);
+    // Emerging = genuinely new or rising now (lib/trend.ts), not a stored flag.
+    const emergingIds = await loadEmerging(ws.id);
+    const emerging = themeRows.filter((t) => emergingIds.has(t.id)).map((t) => t.title);
 
     // roadmap status counts
     const enh = await db
