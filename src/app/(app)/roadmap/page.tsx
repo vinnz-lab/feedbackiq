@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { desc } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { computeScore } from "@/lib/score";
 import { RoadmapBoard, type EnhCard } from "@/components/roadmap-board";
@@ -25,12 +25,18 @@ export default async function RoadmapPage({
   const view = rawView === "board" ? "board" : "backlog";
   const db = await getDb();
 
-  const rows = await db.select().from(schema.enhancements).orderBy(desc(schema.enhancements.createdAt));
-  const enh = rows.map((e) => ({
+  // The linked theme's name is shown live, so a rename or merge can never leave
+  // the roadmap saying something different from the Themes page.
+  const rows = await db
+    .select({ e: schema.enhancements, themeTitle: schema.themes.title })
+    .from(schema.enhancements)
+    .leftJoin(schema.themes, eq(schema.enhancements.themeId, schema.themes.id))
+    .orderBy(desc(schema.enhancements.createdAt));
+  const enh = rows.map(({ e, themeTitle }) => ({
     id: e.id,
     benefitRaw: e.benefit,
     effortRaw: e.effort,
-    title: e.title,
+    title: themeTitle ?? e.title,
     benefit: e.benefit,
     effort: e.effort,
     demand: e.demand,

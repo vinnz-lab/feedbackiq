@@ -100,6 +100,12 @@ export async function mergeThemes(
         .update(schema.themes)
         .set({ title: canonicalTitle.trim() })
         .where(eq(schema.themes.id, survivor.id));
+      // Keep the roadmap's stored name in step, so exports and any page that
+      // reads it directly agree with the Themes page.
+      await tx
+        .update(schema.enhancements)
+        .set({ title: canonicalTitle.trim() })
+        .where(eq(schema.enhancements.themeId, survivor.id));
     }
 
     // 4. VERIFY BEFORE DELETING. Everything that pointed at the group must now

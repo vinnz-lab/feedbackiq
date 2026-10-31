@@ -16,6 +16,7 @@ import {
 } from "@/components/ui";
 import { mixString } from "@/components/theme-card";
 import { PromoteButton } from "@/components/promote-button";
+import { ThemeTitleEditor } from "@/components/theme-title-editor";
 import { loadTrends } from "@/lib/trend-data";
 
 export const dynamic = "force-dynamic";
@@ -85,7 +86,7 @@ export default async function ThemeDetailPage({
       </Link>
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <h1 className="text-[26px] font-bold tracking-tight">{theme.title}</h1>
+        <ThemeTitleEditor themeId={id} title={theme.title} />
         <TrendChip trend={(await loadTrends()).get(id)} />
         {theme.isEmerging && (
           <span className="rounded-[4px] bg-rose px-1.5 py-0.5 text-[9.5px] font-extrabold tracking-wide text-white">EMERGING</span>
