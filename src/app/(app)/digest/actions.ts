@@ -1,5 +1,7 @@
 "use server";
 
+import { withWorkspaceAi } from "@/lib/ai/with-workspace-ai";
+import { currentAiKey } from "@/lib/ai/ai-context";
 import { revalidatePath } from "next/cache";
 import { and, desc, eq, count } from "drizzle-orm";
 import { getDb, schema } from "@/db";
@@ -7,7 +9,7 @@ import { generateDigestAi } from "@/lib/ai/digest";
 import { guardAiRun } from "@/lib/guard";
 import { requireWorkspace } from "@/lib/workspace";
 
-export async function generateDigest(): Promise<{ ok: boolean; error?: string }> {
+async function generateDigestInner(): Promise<{ ok: boolean; error?: string }> {
   try {
     const ctx = await requireWorkspace();
     const user = ctx.user;
@@ -15,7 +17,7 @@ export async function generateDigest(): Promise<{ ok: boolean; error?: string }>
     const db = await getDb();
     const fi = schema.feedbackItems;
 
-    const gate = await guardAiRun("ai.digest", ws.id, user);
+    const gate = await guardAiRun("ai.digest", ws.id, user, currentAiKey()?.source ?? "platform");
     if (!gate.ok) return { ok: false, error: gate.error };
 
     // theme mention counts (approved) + sentiment
@@ -78,4 +80,9 @@ export async function generateDigest(): Promise<{ ok: boolean; error?: string }>
   } catch (e) {
     return { ok: false, error: (e as Error).message };
   }
+}
+
+/** Runs on the current workspace's AI key (see lib/ai/with-workspace-ai.ts). */
+export async function generateDigest(): Promise<{ ok: boolean; error?: string }> {
+  return withWorkspaceAi((error) => ({ ok: false, error }), () => generateDigestInner());
 }

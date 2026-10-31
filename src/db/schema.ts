@@ -121,6 +121,26 @@ export const workspaceMembers = pgTable(
   ],
 );
 
+/**
+ * Per-workspace AI settings: the workspace's OWN Gemini key (encrypted), and
+ * whether it may fall back to the platform owner's key.
+ *
+ * No row = defaults: no own key, platform key allowed. The key is stored only
+ * as AES-256-GCM ciphertext; the app never shows or logs it after saving, and
+ * it is deliberately excluded from workspace backups.
+ */
+export const workspaceAiSettings = pgTable("workspace_ai_settings", {
+  workspaceId: uuid("workspace_id")
+    .primaryKey()
+    .references(() => workspaces.id, { onDelete: "cascade" }),
+  provider: text("provider").notNull().default("gemini"),
+  encryptedKey: text("encrypted_key"),
+  keyLast4: text("key_last4"),
+  allowPlatformKey: boolean("allow_platform_key").notNull().default(true),
+  updatedBy: uuid("updated_by").references(() => users.id, { onDelete: "set null" }),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 /* ============================ Taxonomy ============================ */
 export const productAreas = pgTable("product_areas", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),

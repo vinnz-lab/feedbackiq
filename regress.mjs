@@ -108,10 +108,12 @@ if (await runAi.isEnabled()) {
   await page.waitForTimeout(1500);
   const line =
     (await page.locator("main").innerText()).match(
-      /[^\n]*(failed|Analysed|still waiting|Nothing to analyse)[^\n]*/,
+      /[^\n]*(failed|Analysed|still waiting|Nothing to analyse|No AI key)[^\n]*/,
     )?.[0] ?? "";
-  check("AI failures are reported", /failed/.test(line), line.trim());
-  check("failure names a cause", /GEMINI|rate limit|Gemini/i.test(line));
+  // With no key at all the run now stops up front and says why, instead of
+  // failing item by item; either way the user must be told.
+  check("AI failures are reported", /failed|No AI key/.test(line), line.trim());
+  check("failure names a cause", /GEMINI|rate limit|Gemini|AI key/i.test(line));
 } else {
   check("AI failures are reported", false, "no unclassified items — run seed-unclassified.ts");
 }
@@ -133,7 +135,13 @@ check("1st AI run not rate-limited", !/please wait/.test(warn1), warn1 || "no wa
 await digestBtn.click();
 await page.waitForTimeout(1500);
 const warn2 = (await page.locator("main").innerText()).match(/⚠[^\n]*/)?.[0] ?? "";
-check("2nd AI run blocked by cooldown", /please wait \d+s/.test(warn2), warn2 || "no warning");
+if (/No AI key/.test(warn1)) {
+  // No key at all: the run stops before it starts, so it isn't counted and
+  // there's no cooldown to hit. The cooldown itself is covered by guard-test.
+  check("with no AI key, the run stops up front and says why", /No AI key/.test(warn2), warn2);
+} else {
+  check("2nd AI run blocked by cooldown", /please wait \d+s/.test(warn2), warn2 || "no warning");
+}
 
 // ---------- Sign-out ----------
 console.log("\nSession:");

@@ -27,10 +27,11 @@ const ALLOW_UNSCOPED: Record<string, string> = {
   "src/lib/themes/rename.ts": "operates on a theme id already verified to be in the workspace",
   "src/app/(app)/register/transcribe-actions.ts": "updates rows taken from a workspace-scoped query",
   "src/app/(app)/settings/team-actions.ts": "counts a user's memberships across workspaces on purpose",
+  "src/lib/ai/workspace-key.ts": "reads the settings row of the workspace id it is given",
   "src/lib/workspace-delete.ts": "deletes ONE workspace by id; callers check permission",
   "src/lib/platform-data.ts": "platform owner's list: names/owner/date of workspaces THEY set up, no content",
 };
-const OWNED = ["sources", "themes", "feedbackItems", "enhancements", "digests", "productAreas", "trackerConnections", "aiConfigs", "auditEvents"];
+const OWNED = ["sources", "themes", "feedbackItems", "enhancements", "digests", "productAreas", "trackerConnections", "aiConfigs", "auditEvents", "workspaceAiSettings"];
 
 let fail = 0;
 const check = (n: string, ok: boolean, d = "") => { console.log(`${ok ? "✓" : "✗"} ${n}${d ? " — " + d : ""}`); if (!ok) fail++; };
@@ -96,6 +97,25 @@ check("…exact name required", /confirmName !== ws\.name/.test(rp));
 check("…never deletes the remover's own account", /if \(m\.id === ctx\.user\.id\) continue/.test(rp));
 check("…only removes sign-ins of people left with NO workspace", /Number\(n\) === 0\) orphans\.push/.test(rp));
 check("…reads no content from inside it", !/feedbackItems|schema\.themes|schema\.sources/.test(rp));
+// --- AI keys ---------------------------------------------------------------
+for (const f of ["src/app/(app)/register/ai-actions.ts", "src/app/(app)/themes/actions.ts", "src/app/(app)/themes/consolidate-actions.ts", "src/app/(app)/digest/actions.ts"]) {
+  const s = strip(readFileSync(f, "utf8"));
+  check(`${f.split("/").slice(-2).join("/")} runs on the workspace's AI key`, /withWorkspaceAi\(/.test(s) && /currentAiKey\(\)\?\.source/.test(s));
+}
+const gem = strip(readFileSync("src/lib/ai/gemini.ts", "utf8"));
+check("Gemini calls send the key in a header, never in the URL", /"x-goog-api-key": key/.test(gem) && !/\?key=/.test(gem));
+const wk = strip(readFileSync("src/lib/ai/workspace-key.ts", "utf8"));
+check("an unreadable saved key is an error, never a silent fall back to the platform key", /catch \{\s*throw new NoAiKeyError/.test(wk));
+check("a workspace blocked from the platform key can't use it", /!row\.allowPlatformKey\) \{\s*throw new NoAiKeyError/.test(wk));
+const ak = strip(readFileSync("src/app/(app)/settings/ai-key-actions.ts", "utf8"));
+check("only the workspace owner can set or remove its key", (ak.match(/ctx\.role !== "owner"/g) ?? []).length === 2);
+check("a key is checked with Google before it's saved", ak.indexOf("checkWithGoogle(key)") < ak.indexOf("encryptSecret(key)"));
+check("the audit log records only the last 4 characters", /after: \{ last4: values\.keyLast4 \}/.test(ak) && !/after: \{[^}]*key[,}]/.test(ak.replace(/last4/g, "")));
+const ex = strip(readFileSync("src/app/api/export/route.ts", "utf8"));
+check("backups don't include AI keys", !/workspaceAiSettings/.test(ex));
+check("only the platform owner can block a workspace from their key, and only ones they set up",
+  /function setPlatformKeyAllowed[\s\S]*isPlatformAdmin[\s\S]*You can only change workspaces you set up/.test(strip(readFileSync("src/app/(app)/settings/platform-actions.ts", "utf8"))));
+
 const plat = strip(readFileSync("src/lib/platform.ts", "utf8"));
 check("platform owner comes from an env variable, not anything the app can change", /process\.env\.PLATFORM_ADMIN_EMAILS/.test(plat) && !/getDb/.test(plat));
 

@@ -15,6 +15,13 @@
       "when": 1793481199557,
       "tag": "0001_workspace_members",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793488388933,
+      "tag": "0002_workspace_ai_settings",
+      "breakpoints": true
     }
   ]
 }

@@ -1,5 +1,7 @@
 "use server";
 
+import { withWorkspaceAi } from "@/lib/ai/with-workspace-ai";
+import { currentAiKey } from "@/lib/ai/ai-context";
 import { revalidatePath } from "next/cache";
 import { and, eq } from "drizzle-orm";
 import { getDb, schema } from "@/db";
@@ -10,7 +12,7 @@ import { requireWorkspace } from "@/lib/workspace";
 
 /** Same honesty rule as runAiAnalysis: partial failures must be reported, not
  *  hidden behind a success count. */
-export async function regenerateSummaries(): Promise<{
+async function regenerateSummariesInner(): Promise<{
   updated: number;
   failed: number;
   error?: string;
@@ -23,7 +25,7 @@ export async function regenerateSummaries(): Promise<{
     const ws = ctx.workspace;
     const db = await getDb();
 
-    const gate = await guardAiRun("ai.summarize", ws.id, user);
+    const gate = await guardAiRun("ai.summarize", ws.id, user, currentAiKey()?.source ?? "platform");
     if (!gate.ok) return { updated: 0, failed: 0, error: gate.error };
 
     const themes = await db.select().from(schema.themes).where(eq(schema.themes.workspaceId, ws.id));
@@ -94,4 +96,13 @@ export async function regenerateSummaries(): Promise<{
   } catch (e) {
     return { updated: 0, failed: 0, error: (e as Error).message };
   }
+}
+
+/** Runs on the current workspace's AI key (see lib/ai/with-workspace-ai.ts). */
+export async function regenerateSummaries(): Promise<{
+  updated: number;
+  failed: number;
+  error?: string;
+}> {
+  return withWorkspaceAi((error) => ({ updated: 0, failed: 0, error }), () => regenerateSummariesInner());
 }
