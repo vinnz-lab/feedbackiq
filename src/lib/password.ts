@@ -41,3 +41,13 @@ export async function performPasswordChange(
   await auth.signOut({ scope: "others" }).catch(() => {});
   return { ok: true };
 }
+
+/** Rules for a new password set from a reset link (no current password to compare). */
+export function checkResetPassword(next: string, confirm: string): string | null {
+  if (next.length < MIN_PASSWORD) return `Use at least ${MIN_PASSWORD} characters.`;
+  if (next.length > 72) return "Keep the password under 72 characters.";
+  if (next !== confirm) return "The two passwords don't match.";
+  if (/^\s|\s$/.test(next)) return "The password can't start or end with a space.";
+  return null;
+}
+

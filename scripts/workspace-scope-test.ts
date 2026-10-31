@@ -56,7 +56,9 @@ for (const f of files) {
 }
 check("every read/write of workspace data is filtered by workspace", unscoped.length === 0, unscoped.join(" | "));
 
-const actions = files.filter((f) => /^\s*["']use server["']/.test(readFileSync(f, "utf8")) && !f.includes("login/actions"));
+// Sign-in, forgot-password and reset run BEFORE anyone is in a workspace.
+const PRE_LOGIN = ["login/actions", "forgot-password/actions", "reset-password/actions"];
+const actions = files.filter((f) => /^\s*["']use server["']/.test(readFileSync(f, "utf8")) && !PRE_LOGIN.some((p) => f.includes(p)));
 const noCtx = actions.filter((f) => !/requireWorkspace\(\)/.test(readFileSync(f, "utf8")));
 check(`all ${actions.length} server-action files resolve the workspace via requireWorkspace()`, noCtx.length === 0, noCtx.join(", "));
 const stillUser = actions.filter((f) => /requireUser\(\)/.test(strip(readFileSync(f, "utf8"))));
