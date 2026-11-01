@@ -7,7 +7,7 @@ const check = (ok, n, d = "") => { console.log(`${ok ? "  ✓" : "  ✗"} ${n}${
 mkdirSync("/tmp/walk", { recursive: true });
 const b = await chromium.launch();
 const users = ["Jamie Lee", "Tom Becker", "Riya Shah", "Ana Costa", "Vera Viewer", "Tess Tester"];
-const pages = ["/dashboard", "/themes", "/register", "/register?tab=review", "/roadmap", "/roadmap?view=board", "/trends", "/digest", "/ingest", "/integrations", "/settings"];
+const pages = ["/dashboard", "/themes", "/register", "/register?tab=review", "/roadmap", "/roadmap?view=board", "/trends", "/digest", "/ingest", "/integrations", "/briefings", "/settings"];
 const BROKEN = /Application error|Internal Server Error|Something went wrong|Unhandled Runtime Error|This page could not be found/i;
 for (const name of users) {
   console.log(`\n${name}:`);

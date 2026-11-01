@@ -12,6 +12,7 @@ import {
   BarChart3,
   Settings,
   Plug,
+  Headphones,
   Sparkles,
   Plus,
   type LucideIcon,
@@ -29,6 +30,7 @@ const ICONS: Record<string, LucideIcon> = {
   BarChart3,
   Settings,
   Plug,
+  Headphones,
 };
 
 export function Sidebar({

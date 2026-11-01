@@ -20,7 +20,7 @@ export const AI_DAILY_CAP = 25;
  *  shared cap. It still has a ceiling of its own, to stop a runaway loop. */
 export const OWN_KEY_DAILY_CAP = 200;
 
-export type AiAction = "ai.classify" | "ai.summarize" | "ai.digest";
+export type AiAction = "ai.classify" | "ai.summarize" | "ai.digest" | "ai.audio";
 
 /** Returns the signed-in user, or throws. Use in every mutating server action. */
 export async function requireUser() {

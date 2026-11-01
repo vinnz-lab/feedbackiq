@@ -1,5 +1,6 @@
 import { and, count, desc, eq } from "drizzle-orm";
 import { getDb, schema } from "@/db";
+import { deleteExpiredBriefings } from "@/lib/briefings-retention";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -39,6 +40,9 @@ export async function GET(request: Request) {
   try {
     const db = await getDb();
     const [ws] = await db.select().from(schema.workspaces).limit(1);
+
+    // Audio briefings live 30 days; this is the daily sweep.
+    const expiredBriefings = await deleteExpiredBriefings().catch(() => -1);
 
     // Several small reads rather than one, to match "a few requests each day".
     const [[items], [themes], [sources]] = await Promise.all([
@@ -92,6 +96,7 @@ export async function GET(request: Request) {
 
     return Response.json({
       ok: true,
+      expiredBriefings,
       at: new Date().toISOString(),
       viaCron,
       // Diagnostics: if cronRunsLogged stays 0 while manual calls work, the
