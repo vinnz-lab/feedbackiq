@@ -1,0 +1,101 @@
+/** Welcome guide, sample data and "Send feedback", end to end (run via run-ws-suites.sh). */
+import { chromium } from "playwright";
+const base = process.env.BASE || "http://localhost:4000";
+let fail = 0;
+const check = (ok, n, d = "") => { console.log(`${ok ? "  ✓" : "  ✗"} ${n}${d ? " — " + d : ""}`); if (!ok) fail++; };
+const b = await chromium.launch();
+const errors = [];
+async function session(name) {
+  const ctx = await b.newContext({ viewport: { width: 1400, height: 1300 } });
+  const page = await ctx.newPage();
+  page.on("pageerror", (e) => errors.push(`${name}: ${e.message}`));
+  page.on("dialog", (d) => d.accept());
+  await page.goto(base + "/login", { waitUntil: "networkidle" });
+  await page.click(`text=${name}`);
+  await page.waitForURL("**/dashboard", { timeout: 20000 });
+  return page;
+}
+const guide = (p) => p.getByRole("region", { name: "Getting started" });
+const dash = (p) => p.goto(base + "/dashboard", { waitUntil: "networkidle" });
+
+console.log("A workspace already in use (Jamie, owner):");
+const jamie = await session("Jamie Lee");
+let t = await guide(jamie).innerText();
+check(/Getting started with Insight Hub/.test(t) && /of 6 done/.test(t), "the guide shows, with progress", t.match(/\d of 6 done/)?.[0]);
+check((await guide(jamie).getByTestId("step-add").getAttribute("data-done")) === "true" && (await guide(jamie).getByTestId("step-digest").getAttribute("data-done")) === "false", "steps tick off from what's really in the workspace");
+check(!/Load sample data/.test(t), "no sample data offered where there's real feedback");
+await guide(jamie).getByRole("link", { name: "Open digest →" }).click();
+await jamie.waitForURL("**/digest");
+check(true, "each step's button goes to the right page");
+await dash(jamie);
+await guide(jamie).getByRole("button", { name: /Hide the getting started guide/ }).click();
+check((await guide(jamie).count()) === 0 && (await jamie.getByRole("button", { name: /✦ Getting started \(\d of 6 done\)/ }).count()) === 1, "Hide tucks it away, leaving a small link");
+await jamie.reload({ waitUntil: "networkidle" });
+check((await guide(jamie).count()) === 0, "it stays hidden after reload");
+await jamie.getByRole("button", { name: /✦ Getting started/ }).click();
+check((await guide(jamie).count()) === 1, "and comes back from the link");
+
+console.log("\nA viewer:");
+const vera = await session("Vera Viewer");
+t = await guide(vera).innerText();
+check(/Welcome to Insight Hub/.test(t) && /changes are made by the workspace's editors/.test(t), "gets a short tour instead of the checklist");
+check(!/Run AI analysis|Load sample data|of 6 done/.test(t) && /Themes/.test(t) && /Roadmap/.test(t), "nothing it can't do — just where to look");
+
+console.log("\nA brand-new workspace:");
+await jamie.goto(base + "/settings", { waitUntil: "networkidle" });
+await jamie.getByLabel("Their name").fill("Nina Novak");
+await jamie.getByLabel("Their email").fill("nina@new.test");
+await jamie.getByLabel("Their workspace name").fill("Nina's space");
+await jamie.getByLabel("Their password").fill("test-pass-12345");
+await jamie.getByRole("button", { name: "Create their workspace" }).click();
+await jamie.waitForTimeout(2000);
+const nina = await session("Nina Novak");
+t = await guide(nina).innerText();
+check(/0 of 6 done/.test(t) && /Load sample data/.test(t), "starts at 0 of 6, with sample data on offer");
+await guide(nina).getByRole("button", { name: "Load sample data" }).click();
+await nina.getByTestId("sample-banner").waitFor({ timeout: 20000 });
+await nina.waitForTimeout(500);
+t = await guide(nina).innerText();
+check(/5 of 6 done/.test(t) && !/Load sample data/.test(t), "loading it fills the workspace: 5 of 6 steps now show done", t.match(/\d of 6 done/)?.[0]);
+const main = await nina.locator("main").innerText();
+check(/Slow Board Loading/.test(main) && /Export to Excel and CSV/.test(main), "the dashboard now has themes to look at");
+check(/This workspace contains sample data/.test(await nina.getByTestId("sample-banner").innerText()), "a banner says it's sample data");
+await nina.goto(base + "/register?tab=sources", { waitUntil: "networkidle" });
+check((await nina.locator("tbody tr").allInnerTexts()).every((r) => /Sample —/.test(r)), "sources are labelled “Sample —”");
+check((await nina.getByTestId("sample-banner").count()) === 1, "the banner shows on every page");
+await nina.goto(base + "/register?tab=review", { waitUntil: "networkidle" });
+check(/Is there a dark mode/.test(await nina.locator("main").innerText()), "some items wait in Needs review, ready to try the AI step");
+await nina.goto(base + "/roadmap", { waitUntil: "networkidle" });
+{ const rm = await nina.locator("main").innerText(); check(/Slow Board Loading/.test(rm) && /Export to Excel and CSV/.test(rm), "the roadmap has items too"); }
+await nina.getByTestId("sample-banner").getByRole("button", { name: "Remove sample data" }).click();
+await nina.waitForTimeout(2500);
+await dash(nina);
+t = await guide(nina).innerText();
+check((await nina.getByTestId("sample-banner").count()) === 0 && /0 of 6 done/.test(t) && /Load sample data/.test(t), "Remove sample data empties it again — back to the start");
+await nina.goto(base + "/register?tab=sources", { waitUntil: "networkidle" });
+check(!/Sample —/.test(await nina.locator("main").innerText()), "no sample sources left");
+await jamie.goto(base + "/dashboard", { waitUntil: "networkidle" });
+check((await jamie.getByTestId("sample-banner").count()) === 0 && !/Export to Excel and CSV/.test(await jamie.locator("main").innerText()), "Jamie's workspace never saw any of it");
+
+console.log("\nSend feedback:");
+await nina.getByRole("button", { name: "Feedback" }).click();
+const dlg = nina.getByRole("dialog", { name: "Send feedback" });
+check(await dlg.getByRole("button", { name: "Send" }).isDisabled(), "Send waits until something's written");
+await dlg.getByRole("radio", { name: "Problem" }).click();
+await dlg.getByLabel("Your feedback").fill("WELCOMEFB the sample data was great but I couldn't find the export button");
+await dlg.getByRole("button", { name: "Send" }).click();
+await dlg.locator("text=/it's on its way/").waitFor({ timeout: 15000 });
+check(true, "it thanks you");
+await jamie.goto(base + "/register?tab=review", { waitUntil: "networkidle" });
+t = await jamie.locator("main").innerText();
+check(/\[Problem\] WELCOMEFB the sample data was great/.test(t), "it arrives in the platform owner's Needs review, with its kind");
+check(/In-app feedback \(webhook\)/.test(t) && /Nina's space/.test(t), "labelled In-app feedback, from Nina's workspace");
+check(/sent from \/register/.test(t), "with the page it was sent from");
+await nina.goto(base + "/register?tab=review", { waitUntil: "networkidle" });
+check(!/WELCOMEFB/.test(await nina.locator("main").innerText()), "it isn't added to Nina's own workspace");
+check((await vera.getByRole("button", { name: "Feedback" }).count()) === 1, "viewers can send feedback too");
+
+console.log(errors.length ? "\nBrowser errors:\n" + errors.join("\n") : "\nNo browser errors.");
+await b.close();
+console.log(fail ? `${fail} FAILED` : "all passed");
+process.exit(fail ? 1 : 0);

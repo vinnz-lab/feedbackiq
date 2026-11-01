@@ -7,6 +7,8 @@ import { getWorkspaceInfo } from "@/lib/workspace-info";
 import { getCurrentUser } from "@/lib/auth";
 import { loadFacets } from "@/lib/facets-data";
 import { loadTrends } from "@/lib/trend-data";
+import { getGuideState } from "@/lib/getting-started";
+import { GettingStarted } from "@/components/getting-started";
 import {
   Card,
   TypePill,
@@ -66,6 +68,7 @@ export default async function DashboardPage() {
     map.set(r.themeId, m);
   }
 
+  const guide = await getGuideState(wsId);
   const trends = await loadTrends(wsId);
   const facets = await loadFacets(wsId);
   const missingSummaries = themes.filter((t) => !t.summary).length;
@@ -95,6 +98,8 @@ export default async function DashboardPage() {
           {canEdit ? "✨ Generate Digest" : "View digest"}
         </Link>
       </div>
+
+      <GettingStarted state={guide} canEdit={canEdit} workspaceId={wsId} />
 
       <div className="mb-2">
         <h2 className="text-[22px] font-semibold tracking-tight">Welcome back, {firstName} 👋</h2>
