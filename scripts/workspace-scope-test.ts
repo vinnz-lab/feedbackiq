@@ -28,12 +28,13 @@ const ALLOW_UNSCOPED: Record<string, string> = {
   "src/app/(app)/register/transcribe-actions.ts": "updates rows taken from a workspace-scoped query",
   "src/app/(app)/settings/team-actions.ts": "counts a user's memberships across workspaces on purpose",
   "src/lib/webhook-receive.ts": "no login: the secret address identifies the workspace; every write uses hook.workspaceId",
+  "src/lib/sharing-data.ts": "public share page: the secret link identifies the workspace (looked up by hash); everything else is filtered by it",
   "src/lib/jira-workspace.ts": "reads the connection / builds the ticket for the workspace id it is given",
   "src/lib/ai/workspace-key.ts": "reads the settings row of the workspace id it is given",
   "src/lib/workspace-delete.ts": "deletes ONE workspace by id; callers check permission",
   "src/lib/platform-data.ts": "platform owner's list: names/owner/date of workspaces THEY set up, no content",
 };
-const OWNED = ["sources", "themes", "feedbackItems", "enhancements", "digests", "productAreas", "trackerConnections", "aiConfigs", "auditEvents", "workspaceAiSettings", "incomingWebhooks"];
+const OWNED = ["sources", "themes", "feedbackItems", "enhancements", "digests", "productAreas", "trackerConnections", "aiConfigs", "auditEvents", "workspaceAiSettings", "incomingWebhooks", "digestChannels", "shareLinks"];
 
 let fail = 0;
 const check = (n: string, ok: boolean, d = "") => { console.log(`${ok ? "✓" : "✗"} ${n}${d ? " — " + d : ""}`); if (!ok) fail++; };
@@ -140,6 +141,18 @@ const jc = strip(readFileSync("src/lib/jira.ts", "utf8"));
 check("the Jira client only talks to *.atlassian.net and refuses redirects", /\\.atlassian\\\.net\$/.test(jc) && /redirect: "error"/.test(jc));
 
 // --- Incoming webhook -------------------------------------------------------
+// --- Sharing ----------------------------------------------------------------
+const sd = strip(readFileSync("src/lib/sharing-data.ts", "utf8"));
+check("share links are found only by a hash of the secret", /eq\(schema\.shareLinks\.tokenHash, hashShareToken\(token\)\)/.test(sd) && /looksLikeShareToken\(token\)/.test(sd));
+const sp = strip(readFileSync("src/app/share/[token]/page.tsx", "utf8"));
+check("the shared roadmap reads only its own workspace, and never quotes, customers or Jira", /eq\(schema\.enhancements\.workspaceId, ws\.id\)/.test(sp) && !/feedbackItems|customer|jira/i.test(sp.replace(/customer feedback|customer mention|customer voice/gi, "")));
+check("share pages are never indexed and don't leak their address", /index: false/.test(sp) && /referrer: "no-referrer"/.test(sp));
+const sa = strip(readFileSync("src/app/(app)/sharing-actions.ts", "utf8"));
+check("only owners connect Slack/Teams or create/turn off share links", ["connectChannel", "disconnectChannel", "createShareLink", "turnOffShareLink"].every((f) => new RegExp(`export async function ${f}[\\s\\S]*?await owner\\(\\)`).test(sa)));
+check("posting a digest needs edit rights", /export async function postDigest[\s\S]*?requireCapability\("edit"\)/.test(sa));
+check("a Slack/Teams link is checked and test-posted before it's saved (encrypted)", sa.indexOf("checkChannelUrl(kind") < sa.indexOf("postToChannel(kind, checked.url") && sa.indexOf("postToChannel(kind, checked.url") < sa.indexOf("encryptSecret(checked.url)"));
+const dc = strip(readFileSync("src/lib/digest-channels.ts", "utf8"));
+check("Slack/Teams posts only go to Slack/Teams hosts, and never follow redirects", /host !== "hooks\.slack\.com"/.test(dc) && /webhook\.office\.com/.test(dc) && /redirect: "error"/.test(dc));
 const wr = strip(readFileSync("src/lib/webhook-receive.ts", "utf8"));
 check("webhook: only a hash of the secret is looked up (never stored in plain)", /eq\(schema\.incomingWebhooks\.tokenHash, hashWebhookToken\(token\)\)/.test(wr));
 check("webhook: switched-off addresses are refused", /eq\(schema\.incomingWebhooks\.enabled, true\)/.test(wr));

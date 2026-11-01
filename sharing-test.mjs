@@ -1,0 +1,148 @@
+/** Slack/Teams digest posting and read-only share links, end to end (run via run-ws-suites.sh). */
+import { chromium } from "playwright";
+const base = process.env.BASE || "http://localhost:4000";
+const fake = "http://127.0.0.1:54600";
+let fail = 0;
+const check = (ok, n, d = "") => { console.log(`${ok ? "  ✓" : "  ✗"} ${n}${d ? " — " + d : ""}`); if (!ok) fail++; };
+const b = await chromium.launch();
+const errors = [];
+async function session(name) {
+  const ctx = await b.newContext({ viewport: { width: 1400, height: 1300 } });
+  const page = await ctx.newPage();
+  page.on("pageerror", (e) => errors.push(`${name}: ${e.message}`));
+  page.on("dialog", (d) => d.accept());
+  await page.goto(base + "/login", { waitUntil: "networkidle" });
+  await page.click(`text=${name}`);
+  await page.waitForURL("**/dashboard", { timeout: 20000 });
+  return page;
+}
+const posts = async () => (await fetch(fake + "/__posts")).json();
+const channel = (p, k) => p.getByTestId(`channel-${k}`);
+const msg = (loc) => loc.locator("text=/^(⚠|✓) /").first();
+async function connect(p, kind, url) {
+  await p.goto(base + "/integrations", { waitUntil: "networkidle" });
+  const c = channel(p, kind);
+  await c.getByLabel(/webhook link/).fill(url);
+  await c.getByRole("button", { name: /Connect and send a test|Replace and test/ }).click();
+  await msg(c).waitFor({ timeout: 20000 });
+  return (await msg(c).innerText()).trim();
+}
+const SLACK = "https://hooks.slack.com/services/T0000TEST/B0000TEST/abcdefghijklmnopqrstWXYZ";
+const TEAMS = "https://prod-01.westeurope.logic.azure.com:443/workflows/0123456789abcdef/triggers/manual/paths/invoke?api-version=2016-06-01&sig=QRSTsig";
+
+const jamie = await session("Jamie Lee");
+console.log("Connecting Slack and Teams (owner):");
+await jamie.goto(base + "/integrations", { waitUntil: "networkidle" });
+check(/Not connected/.test(await channel(jamie, "slack").innerText()) && /Not connected/.test(await channel(jamie, "teams").innerText()), "both start not connected — the “coming soon” card is now real");
+let t = await connect(jamie, "slack", "https://example.com/hook/123456789012");
+check(/isn't a Slack webhook link/.test(t), "a non-Slack address is refused", t);
+t = await connect(jamie, "slack", "http://hooks.slack.com/services/T0/B0/abcdefghijkl");
+check(/must start with https/.test(t), "plain http is refused");
+t = await connect(jamie, "slack", "https://hooks.slack.com/services/T0000GONE/B0000GONE/gonegonegonegone");
+check(/no longer exists/.test(t), "a removed Slack webhook is caught by the test message", t);
+let before = (await posts()).length;
+t = await connect(jamie, "slack", SLACK);
+let got = (await posts()).slice(before);
+check(/Connected — a test message was sent to the Slack channel/.test(t), "a real one connects", t);
+check(got.length === 1 && got[0].kind === "slack" && /Insight Hub is connected/.test(got[0].body.text), "…after a test message really went to the channel");
+await jamie.reload({ waitUntil: "networkidle" });
+const st = await channel(jamie, "slack").innerText();
+check(/Connected/.test(st) && /hooks\.slack\.com\/…WXYZ/.test(st) && !(await jamie.content()).includes("abcdefghijklmnopqrst"), "shows only a hint of the link, never the link itself");
+t = await connect(jamie, "teams", "https://hooks.slack.com/services/T0/B0/abcdefghijkl");
+check(/isn't a Teams webhook link/.test(t), "a Slack link isn't accepted for Teams");
+before = (await posts()).length;
+t = await connect(jamie, "teams", TEAMS);
+got = (await posts()).slice(before);
+check(/Connected/.test(t) && got[0]?.kind === "teams" && got[0].body.attachments?.[0]?.contentType === "application/vnd.microsoft.card.adaptive", "Teams connects (workflow link with :443 and a query), sending an Adaptive Card", t);
+
+console.log("\nOthers:");
+const tom = await session("Tom Becker");
+await tom.goto(base + "/integrations", { waitUntil: "networkidle" });
+check(/Connected/.test(await channel(tom, "slack").innerText()) && (await tom.getByLabel(/webhook link/).count()) === 0, "a contributor sees it's connected but can't change it");
+
+console.log("\nPosting the digest:");
+await jamie.goto(base + "/digest", { waitUntil: "networkidle" });
+before = (await posts()).length;
+await jamie.getByRole("button", { name: "Post to Slack" }).click();
+await jamie.locator("text=Posted to Slack.").waitFor({ timeout: 15000 });
+got = (await posts()).slice(before);
+const blocks = got[0]?.body?.blocks ?? [];
+check(got.length === 1 && /SEEDDIGEST/.test(blocks[0]?.text?.text ?? ""), "Post to Slack sends the latest digest", blocks[0]?.text?.text);
+check(blocks.some((x) => /Top themes/.test(x.text?.text ?? "")) && blocks.some((x) => /Roadmap: 3 under review/.test(JSON.stringify(x))), "with its sections and roadmap snapshot");
+check(blocks.some((x) => x.type === "actions" && /\/digest$/.test(x.elements[0].url)), "and a button back to the digest");
+await jamie.reload({ waitUntil: "networkidle" });
+await jamie.getByRole("button", { name: "Post to Slack" }).click();
+await jamie.locator("text=/posted moments ago/").waitFor({ timeout: 10000 });
+check((await posts()).length === before + 1, "a quick second click doesn't post twice");
+await jamie.getByRole("button", { name: "Post to Teams" }).click();
+await jamie.locator("text=Posted to Microsoft Teams.").waitFor({ timeout: 15000 });
+const tcard = (await posts()).at(-1).body.attachments[0].content;
+check(/SEEDDIGEST/.test(tcard.body[0].text) && tcard.actions[0].type === "Action.OpenUrl", "Post to Teams sends it as a card");
+await tom.goto(base + "/digest", { waitUntil: "networkidle" });
+check((await tom.getByRole("button", { name: "Post to Slack" }).count()) === 1, "a contributor can post");
+const vera = await session("Vera Viewer");
+await vera.goto(base + "/digest", { waitUntil: "networkidle" });
+check((await vera.getByRole("button", { name: /Post to/ }).count()) === 0, "a viewer can't");
+
+console.log("\nShare links:");
+check((await tom.getByRole("button", { name: /🔗 Share/ }).count()) === 0 && (await vera.getByRole("button", { name: /🔗 Share/ }).count()) === 0, "only the owner can share");
+await jamie.goto(base + "/digest", { waitUntil: "networkidle" });
+await jamie.getByRole("button", { name: /🔗 Share/ }).click();
+await jamie.getByRole("button", { name: "Create share link" }).click();
+await jamie.getByTestId("share-url").waitFor({ timeout: 10000 });
+const digestUrl = (await jamie.getByTestId("share-url").innerText()).trim();
+check(/\/share\/ihs_[A-Za-z0-9]{32}$/.test(digestUrl), "creates a private link", digestUrl);
+const anon = await (await b.newContext()).newPage();
+await anon.goto(digestUrl, { waitUntil: "networkidle" });
+let pub = await anon.locator("body").innerText();
+check(/SEEDDIGEST/.test(pub) && /Acme App · Feedback digest · read-only/.test(pub), "anyone with it sees the digest, without signing in");
+check((await anon.locator("nav").count()) === 0 && (await anon.locator("a[href^='/']").count()) === 0 && !/Settings|Sign out|Integrations/.test(pub), "and nothing else from the app — no menu, no links into it");
+check((await anon.locator('meta[name="robots"]').getAttribute("content"))?.includes("noindex") && (await anon.locator('meta[name="referrer"]').getAttribute("content")) === "no-referrer", "search engines are told not to index it");
+await jamie.reload({ waitUntil: "networkidle" });
+await jamie.getByRole("button", { name: /🔗 Share · on/ }).click();
+check(/Viewed 1 time/.test(await jamie.getByRole("dialog", { name: /Share the digest/ }).innerText()), "the owner sees how often it's been viewed");
+check((await jamie.getByTestId("share-url").innerText()).trim() === digestUrl, "and can copy the same link again later");
+
+await jamie.goto(base + "/roadmap", { waitUntil: "networkidle" });
+await jamie.getByRole("button", { name: /🔗 Share/ }).click();
+await jamie.getByRole("button", { name: "Create share link" }).click();
+await jamie.getByTestId("share-url").waitFor({ timeout: 10000 });
+const roadUrl = (await jamie.getByTestId("share-url").innerText()).trim();
+check(roadUrl !== digestUrl, "the roadmap gets its own link");
+await anon.goto(roadUrl, { waitUntil: "networkidle" });
+pub = await anon.locator("body").innerText();
+check(/Acme App · Roadmap · read-only/.test(pub) && /UNDER REVIEW|Under review/.test(pub) && /Score \d/.test(pub), "the roadmap shows its columns and scores");
+check(!/Northwind|Skyline|Globex|Initech|Umbrella|FIQ-|Jira/.test(pub), "with no customer names or Jira details");
+
+console.log("\nTurning links off:");
+await jamie.getByRole("button", { name: "Make a new link instead" }).click();
+await jamie.waitForTimeout(1500);
+await jamie.reload({ waitUntil: "networkidle" });
+await jamie.getByRole("button", { name: /🔗 Share · on/ }).click();
+const newRoad = (await jamie.getByTestId("share-url").innerText()).trim();
+await anon.goto(roadUrl, { waitUntil: "networkidle" });
+check(/switched off or doesn't exist/.test(await anon.locator("body").innerText()) && newRoad !== roadUrl, "making a new link stops the old one at once");
+await anon.goto(newRoad, { waitUntil: "networkidle" });
+check(/Roadmap · read-only/.test(await anon.locator("body").innerText()), "the new one works");
+await jamie.getByRole("button", { name: "Turn off link" }).click();
+await jamie.waitForTimeout(1500);
+await anon.goto(newRoad, { waitUntil: "networkidle" });
+check(/switched off or doesn't exist/.test(await anon.locator("body").innerText()), "Turn off link stops it");
+await anon.goto(base + "/share/ihs_" + "A".repeat(32), { waitUntil: "networkidle" });
+const made = await anon.locator("body").innerText();
+await anon.goto(base + "/share/not-a-token", { waitUntil: "networkidle" });
+check(/switched off/.test(made) && /switched off/.test(await anon.locator("body").innerText()), "made-up links get the same message");
+await anon.goto(digestUrl, { waitUntil: "networkidle" });
+check(/SEEDDIGEST/.test(await anon.locator("body").innerText()), "the digest link is unaffected");
+
+console.log("\nDisconnecting:");
+await jamie.goto(base + "/integrations", { waitUntil: "networkidle" });
+await channel(jamie, "slack").getByRole("button", { name: "Disconnect Slack" }).click();
+await jamie.waitForTimeout(1500);
+await jamie.goto(base + "/digest", { waitUntil: "networkidle" });
+check((await jamie.getByRole("button", { name: "Post to Slack" }).count()) === 0 && (await jamie.getByRole("button", { name: "Post to Teams" }).count()) === 1, "Slack's button goes; Teams stays");
+
+console.log(errors.length ? "\nBrowser errors:\n" + errors.join("\n") : "\nNo browser errors.");
+await b.close();
+console.log(fail ? `${fail} FAILED` : "all passed");
+process.exit(fail ? 1 : 0);

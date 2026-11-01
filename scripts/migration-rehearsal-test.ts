@@ -102,6 +102,13 @@ async function main() {
   const after6 = await one(`SELECT (SELECT count(*) FROM feedback_items) items, (SELECT count(*) FROM themes) themes, (SELECT count(*) FROM users) users`);
   check("0006 changes no existing data", JSON.stringify(after6) === JSON.stringify(after));
 
+  // 3g. 0007: digest channels + share links.
+  await run("drizzle/0007_digest_channels_share_links.sql");
+  const t7 = await one(`SELECT relname, relrowsecurity FROM pg_class WHERE relname IN ('digest_channels','share_links') ORDER BY relname`);
+  check("0007 adds the digest-channel and share-link tables, protected from the public API", t7.length === 2 && t7.every((r) => r.relrowsecurity === true));
+  const after7 = await one(`SELECT (SELECT count(*) FROM feedback_items) items, (SELECT count(*) FROM themes) themes, (SELECT count(*) FROM users) users`);
+  check("0007 changes no existing data", JSON.stringify(after7) === JSON.stringify(after));
+
   // 4. The OLD app code still works on the new database (the window between
   //    running the SQL and the new code going live).
   const oldStyle = await one(`SELECT id FROM workspaces LIMIT 1`);

@@ -16,7 +16,7 @@ async function session(name) {
   await page.waitForURL("**/dashboard", { timeout: 20000 });
   return page;
 }
-const card = (p) => p.locator("section", { hasText: "Incoming webhook" });
+const card = (p) => p.locator("section", { has: p.getByRole("heading", { name: /Incoming webhook/ }) });
 const open = (p) => p.goto(base + "/integrations", { waitUntil: "networkidle" });
 async function post(path, body, { type = "application/json", auth } = {}) {
   const r = await fetch(base + path, { method: "POST", headers: { "content-type": type, ...(auth ? { authorization: `Bearer ${auth}` } : {}) }, body: typeof body === "string" ? body : JSON.stringify(body) });
