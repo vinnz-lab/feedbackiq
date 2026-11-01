@@ -33,6 +33,7 @@ export function Sidebar({
   currentWorkspaceId = "",
   workspaces = [],
   canCreateWorkspace = false,
+  canEdit = true,
   tenantName = "",
   workspaceName = "Workspace",
   workspaceSub = "",
@@ -41,6 +42,7 @@ export function Sidebar({
   currentWorkspaceId?: string;
   workspaces?: SwitcherItem[];
   canCreateWorkspace?: boolean;
+  canEdit?: boolean;
   tenantName?: string;
   workspaceName?: string;
   workspaceSub?: string;
@@ -95,12 +97,16 @@ export function Sidebar({
 
       {/* bottom */}
       <div className="mt-auto px-1">
+        {canEdit ? (
         <Link
           href="/ingest"
           className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-indigo text-[13.5px] font-semibold text-white transition hover:brightness-110"
         >
           <Plus size={16} /> Ingest Feedback
         </Link>
+        ) : (
+          <div className="rounded-lg bg-[var(--slate-soft)] px-3 py-2.5 text-center text-[12px] font-semibold text-muted">👁 View only</div>
+        )}
         <div className="pt-2.5 text-center text-[10.5px] text-muted">
           Preview build
         </div>

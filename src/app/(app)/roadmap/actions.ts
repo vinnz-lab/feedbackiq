@@ -4,11 +4,11 @@ import { revalidatePath } from "next/cache";
 import { and, count, eq } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import type { EnhancementStatusT } from "@/db/schema";
-import { requireWorkspace } from "@/lib/workspace";
+import { requireCapability } from "@/lib/permissions";
 import { estimateBenefitEffort } from "@/lib/estimate";
 
 export async function updateEnhancementStatus(id: string, status: EnhancementStatusT) {
-  const wsId = (await requireWorkspace()).workspace.id;
+  const wsId = (await requireCapability("edit")).workspace.id;
   const db = await getDb();
   await db
     .update(schema.enhancements)
@@ -21,7 +21,7 @@ export async function updateEnhancementStatus(id: string, status: EnhancementSta
 export async function promoteThemeToEnhancement(
   themeId: string,
 ): Promise<{ id: string; created: boolean }> {
-  const wsId = (await requireWorkspace()).workspace.id;
+  const wsId = (await requireCapability("edit")).workspace.id;
   const db = await getDb();
 
   const existing = await db
@@ -87,7 +87,7 @@ export async function updateEnhancementEstimates(
   benefit: number,
   effort: number,
 ): Promise<{ ok: boolean; error?: string }> {
-  const wsId = (await requireWorkspace()).workspace.id;
+  const wsId = (await requireCapability("edit")).workspace.id;
   const clamp = (n: number) => Math.min(10, Math.max(1, Math.round(Number(n))));
   if (!Number.isFinite(benefit) || !Number.isFinite(effort)) {
     return { ok: false, error: "Scores must be numbers from 1 to 10." };
@@ -105,7 +105,7 @@ export async function updateEnhancementEstimates(
 export async function reestimateEnhancement(
   id: string,
 ): Promise<{ ok: boolean; error?: string; reason?: string }> {
-  const wsId = (await requireWorkspace()).workspace.id;
+  const wsId = (await requireCapability("edit")).workspace.id;
   const db = await getDb();
   const [enh] = await db
     .select({ themeId: schema.enhancements.themeId })

@@ -11,6 +11,7 @@ import { DeleteWorkspace } from "./delete-workspace";
 import { ProvisionWorkspace } from "./provision-workspace";
 import { AccountPassword } from "./account-password";
 import { ResetPasswordButton } from "./reset-member-password";
+import { RoleSelect } from "./role-select";
 import { resetMemberPassword } from "./team-actions";
 import { canResetPassword, workspaceCountFor } from "@/lib/password-admin";
 import { AiConnection } from "./ai-connection";
@@ -144,12 +145,16 @@ export default async function SettingsPage() {
                 </span>
                 <span className="text-[11.5px] text-muted">{u.email}</span>
               </span>
-              <span
-                className="rounded-[var(--radius-pill)] px-2 py-0.5 text-[11.5px] font-semibold"
-                style={{ background: "var(--indigo-soft)", color: "var(--indigo)" }}
-              >
-                {ROLE_LABEL[u.role] ?? u.role}
-              </span>
+              {isOwner && u.id !== me?.id ? (
+                <RoleSelect id={u.id} name={u.name} role={u.role} />
+              ) : (
+                <span
+                  className="rounded-[var(--radius-pill)] px-2 py-0.5 text-[11.5px] font-semibold"
+                  style={{ background: "var(--indigo-soft)", color: "var(--indigo)" }}
+                >
+                  {ROLE_LABEL[u.role] ?? u.role}
+                </span>
+              )}
               {isOwner && u.id !== me?.id && mode === "supabase" && (
                 <ResetPasswordButton
                   action={resetMemberPassword}

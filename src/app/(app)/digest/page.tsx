@@ -1,5 +1,6 @@
 import { desc, eq } from "drizzle-orm";
 import { currentWorkspaceId } from "@/lib/workspace";
+import { currentCan } from "@/lib/permissions";
 import { getDb, schema } from "@/db";
 import { GenerateDigestButton } from "@/components/generate-digest-button";
 
@@ -18,6 +19,7 @@ type Content = {
 
 export default async function DigestPage() {
   const wsId = await currentWorkspaceId();
+  const canEdit = await currentCan("edit");
   const db = await getDb();
   const [latest] = await db
     .select()
@@ -37,7 +39,7 @@ export default async function DigestPage() {
           </p>
         </div>
         <div className="ml-auto">
-          <GenerateDigestButton />
+          {canEdit && <GenerateDigestButton />}
         </div>
       </div>
 

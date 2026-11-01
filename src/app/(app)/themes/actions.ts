@@ -8,7 +8,7 @@ import { getDb, schema } from "@/db";
 import { summarizeTheme } from "@/lib/ai/summarize";
 import { currentIntervalMs, GeminiRateLimitError } from "@/lib/ai/gemini";
 import { guardAiRun } from "@/lib/guard";
-import { requireWorkspace } from "@/lib/workspace";
+import { requireCapability } from "@/lib/permissions";
 
 /** Same honesty rule as runAiAnalysis: partial failures must be reported, not
  *  hidden behind a success count. */
@@ -20,7 +20,7 @@ async function regenerateSummariesInner(): Promise<{
   const started = Date.now();
   const TIME_BUDGET_MS = 210_000; // Vercel caps the function at 300s
   try {
-    const ctx = await requireWorkspace();
+    const ctx = await requireCapability("edit");
     const user = ctx.user;
     const ws = ctx.workspace;
     const db = await getDb();

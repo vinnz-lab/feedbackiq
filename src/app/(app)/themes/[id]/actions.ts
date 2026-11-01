@@ -2,14 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { logAudit } from "@/lib/guard";
-import { requireWorkspace } from "@/lib/workspace";
+import { requireCapability } from "@/lib/permissions";
 import { renameTheme } from "@/lib/themes/rename";
 
 export type RenameResult = { ok: boolean; title?: string; message?: string; error?: string };
 
 export async function renameThemeAction(themeId: string, title: string): Promise<RenameResult> {
   try {
-    const ctx = await requireWorkspace();
+    const ctx = await requireCapability("edit");
     const user = ctx.user;
     const ws = ctx.workspace;
 

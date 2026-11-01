@@ -12,6 +12,7 @@ export const ROLE_LABEL: Record<string, string> = {
   contributor: "Contributor",
   executive: "Executive",
   engineer: "Engineer",
+  viewer: "Viewer",
 };
 
 export type AppUser = typeof schema.users.$inferSelect;

@@ -22,7 +22,7 @@ const COLS: [EnhancementStatusT, string][] = [
   ["shipped", "Shipped"],
 ];
 
-export function RoadmapBoard({ enh }: { enh: EnhCard[] }) {
+export function RoadmapBoard({ enh, readOnly = false }: { enh: EnhCard[]; readOnly?: boolean }) {
   const [items, setItems] = useState(enh);
   const [, start] = useTransition();
   const [dragId, setDragId] = useState<string | null>(null);
@@ -51,7 +51,7 @@ export function RoadmapBoard({ enh }: { enh: EnhCard[] }) {
               setOver(key);
             }}
             onDragLeave={() => setOver((o) => (o === key ? null : o))}
-            onDrop={() => drop(key)}
+            onDrop={() => !readOnly && drop(key)}
             className={`min-h-[320px] rounded-[12px] border p-3 transition ${
               over === key ? "border-indigo bg-[var(--indigo-soft)]" : "border-border bg-surface"
             }`}
@@ -65,9 +65,9 @@ export function RoadmapBoard({ enh }: { enh: EnhCard[] }) {
             {cards.map((e) => (
               <div
                 key={e.id}
-                draggable
+                draggable={!readOnly}
                 onDragStart={() => setDragId(e.id)}
-                className="mb-2 cursor-grab rounded-[9px] border border-border bg-bg p-3 shadow-[var(--shadow)] active:cursor-grabbing"
+                className={`mb-2 ${readOnly ? "" : "cursor-grab active:cursor-grabbing "}rounded-[9px] border border-border bg-bg p-3 shadow-[var(--shadow)]`}
               >
                 <div className="text-[12.5px] font-semibold leading-snug">{e.title}</div>
                 <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-muted">

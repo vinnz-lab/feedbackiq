@@ -119,10 +119,16 @@ check(/Jira: Not found in Jira/.test(await jamie.page.locator("tbody").innerText
 await jamie.page.goto(base + "/roadmap?view=board", { waitUntil: "networkidle" });
 check((await jamie.page.getByRole("link", { name: /FIQ-1/ }).getAttribute("href")) === "https://acme-test.atlassian.net/browse/FIQ-1", "the Board links to the ticket too");
 
-console.log("\nContributor on the roadmap:");
+console.log("\nContributor and viewer on the roadmap:");
 await tom.page.goto(base + "/roadmap", { waitUntil: "networkidle" });
-check((await tom.page.getByRole("button", { name: "→ Send to Jira" }).count()) === 0 && (await tom.page.getByRole("button", { name: "↻ Refresh from Jira" }).count()) === 0, "no Send or Refresh for a contributor");
-check((await tom.page.getByRole("link", { name: /FIQ-1/ }).count()) === 1, "but he can follow the ticket link");
+check((await tom.page.getByRole("button", { name: "→ Send to Jira" }).count()) > 0 && (await tom.page.getByRole("button", { name: "↻ Refresh from Jira" }).count()) === 1, "a contributor CAN send and refresh");
+check((await tom.page.getByRole("link", { name: /FIQ-1/ }).count()) === 1, "and sees the ticket link");
+const vera = await session("Vera Viewer");
+await vera.page.goto(base + "/roadmap", { waitUntil: "networkidle" });
+check((await vera.page.getByRole("button", { name: "→ Send to Jira" }).count()) === 0 && (await vera.page.getByRole("button", { name: "↻ Refresh from Jira" }).count()) === 0, "a viewer can't send or refresh");
+check((await vera.page.getByRole("link", { name: /FIQ-1/ }).count()) === 1, "but can follow the ticket link");
+await vera.page.goto(base + "/settings", { waitUntil: "networkidle" });
+check((await vera.page.getByLabel("Jira API token").count()) === 0, "and can't change the Jira connection");
 
 console.log("\nName settings:");
 t = await connect(jamie.page, { token: "", mode: "include" });

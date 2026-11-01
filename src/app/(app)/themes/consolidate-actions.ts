@@ -9,7 +9,7 @@ import { proposeThemeMerges, type MergeProposal } from "@/lib/ai/consolidate";
 import { GeminiRateLimitError } from "@/lib/ai/gemini";
 import { mergeThemes } from "@/lib/themes/merge";
 import { guardAiRun } from "@/lib/guard";
-import { requireWorkspace } from "@/lib/workspace";
+import { requireCapability } from "@/lib/permissions";
 
 export type ReviewResult = {
   proposals: (MergeProposal & { titles: string[] })[];
@@ -23,7 +23,7 @@ export type ReviewResult = {
  */
 async function reviewThemesInner(): Promise<ReviewResult> {
   try {
-    const ctx = await requireWorkspace();
+    const ctx = await requireCapability("edit");
     const user = ctx.user;
     const ws = ctx.workspace;
     const db = await getDb();
@@ -87,7 +87,7 @@ export type ApplyResult = {
 /** Applies one approved group. */
 export async function applyMerge(themeIds: string[], canonicalTitle: string): Promise<ApplyResult> {
   try {
-    const ctx = await requireWorkspace();
+    const ctx = await requireCapability("edit");
     // The name is now editable, so it is checked here too — the form check is
     // only a convenience and can be bypassed.
     const name = canonicalTitle.trim();

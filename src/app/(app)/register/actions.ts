@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { and, eq, inArray, isNotNull } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import type { FeedbackTypeT, SentimentT, PriorityT } from "@/db/schema";
-import { requireWorkspace } from "@/lib/workspace";
+import { requireCapability } from "@/lib/permissions";
 
 async function touch() {
   revalidatePath("/register");
@@ -19,7 +19,7 @@ async function touch() {
  * in the queue and reported back so the caller can say so.
  */
 export async function bulkApprove(ids: string[]): Promise<{ approved: number; skipped: number }> {
-  const { workspace } = await requireWorkspace();
+  const { workspace } = await requireCapability("edit");
   const inWs = eq(schema.feedbackItems.workspaceId, workspace.id);
   if (!ids.length) return { approved: 0, skipped: 0 };
   const db = await getDb();
@@ -33,7 +33,7 @@ export async function bulkApprove(ids: string[]): Promise<{ approved: number; sk
 }
 
 export async function bulkDiscard(ids: string[]) {
-  const { workspace } = await requireWorkspace();
+  const { workspace } = await requireCapability("edit");
   const inWs = eq(schema.feedbackItems.workspaceId, workspace.id);
   if (!ids.length) return;
   const db = await getDb();
@@ -45,7 +45,7 @@ export async function bulkDiscard(ids: string[]) {
 }
 
 export async function approveItem(id: string): Promise<{ approved: boolean }> {
-  const { workspace } = await requireWorkspace();
+  const { workspace } = await requireCapability("edit");
   const inWs = eq(schema.feedbackItems.workspaceId, workspace.id);
   const db = await getDb();
   const done = await db
@@ -58,7 +58,7 @@ export async function approveItem(id: string): Promise<{ approved: boolean }> {
 }
 
 export async function discardItem(id: string) {
-  const { workspace } = await requireWorkspace();
+  const { workspace } = await requireCapability("edit");
   const inWs = eq(schema.feedbackItems.workspaceId, workspace.id);
   const db = await getDb();
   await db
@@ -77,7 +77,7 @@ export async function correctAndApprove(
     themeId?: string | null;
   },
 ) {
-  const { workspace } = await requireWorkspace();
+  const { workspace } = await requireCapability("edit");
   const inWs = eq(schema.feedbackItems.workspaceId, workspace.id);
   const db = await getDb();
   // The theme comes from the browser, so it must be checked: a theme from

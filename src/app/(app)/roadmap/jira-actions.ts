@@ -6,16 +6,15 @@ import { getDb, schema } from "@/db";
 import { browseUrl, createJiraIssue, getJiraIssueStatus, JiraError, mapJiraStatus } from "@/lib/jira";
 import { buildTicketFor, jiraAuthFor, nameModeOf } from "@/lib/jira-workspace";
 import { logAudit } from "@/lib/guard";
-import { requireWorkspace } from "@/lib/workspace";
+import { requireCapability } from "@/lib/permissions";
 
 /** Marks a roadmap item as "a ticket is being created", so two clicks can't make two tickets. */
 const SENDING = "__sending__";
 const STALE_CLAIM_MS = 2 * 60_000;
 
-async function ownerContext() {
-  const ctx = await requireWorkspace();
-  if (ctx.role !== "owner") throw new Error("Only the workspace owner can send items to Jira.");
-  return ctx;
+/** Owners and contributors (see lib/permissions.ts). Viewers can see the links but not send or refresh. */
+async function jiraContext() {
+  return requireCapability("jira");
 }
 
 export type PreviewResult = { ok: boolean; preview?: string; error?: string };
@@ -23,7 +22,7 @@ export type PreviewResult = { ok: boolean; preview?: string; error?: string };
 /** Exactly what would be sent, with the workspace's name setting applied. Sends nothing. */
 export async function previewJiraTicket(enhancementId: string): Promise<PreviewResult> {
   try {
-    const ctx = await ownerContext();
+    const ctx = await jiraContext();
     const { conn } = await jiraAuthFor(ctx.workspace.id);
     const t = await buildTicketFor(ctx.workspace.id, enhancementId, nameModeOf(conn));
     if (!t) return { ok: false, error: "That roadmap item no longer exists." };
@@ -39,7 +38,7 @@ export async function sendToJira(enhancementId: string): Promise<SendResult> {
   let claimed = false;
   let wsId = "";
   try {
-    const ctx = await ownerContext();
+    const ctx = await jiraContext();
     wsId = ctx.workspace.id;
     const { auth, conn } = await jiraAuthFor(wsId);
     const db = await getDb();
@@ -128,7 +127,7 @@ const MAX_REFRESH = 100;
 /** Pulls the status of every linked ticket from Jira and updates the roadmap to match. Owner only. */
 export async function refreshFromJira(): Promise<RefreshResult> {
   try {
-    const ctx = await ownerContext();
+    const ctx = await jiraContext();
     const { auth } = await jiraAuthFor(ctx.workspace.id);
     const db = await getDb();
     const rows = await db

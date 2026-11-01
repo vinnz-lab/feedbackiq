@@ -75,6 +75,15 @@ async function main() {
   const after3 = await one(`SELECT (SELECT count(*) FROM feedback_items) items, (SELECT count(*) FROM themes) themes, (SELECT count(*) FROM users) users`);
   check("0003 changes no feedback, themes or users", JSON.stringify(after3) === JSON.stringify(after));
 
+  // 3d. 0004: the viewer role. Run twice to prove it's safe to repeat.
+  await run("drizzle/0004_viewer_role.sql");
+  let again = ""; try { await run("drizzle/0004_viewer_role.sql"); } catch (e) { again = (e as Error).message; }
+  const roles = await one(`SELECT unnest(enum_range(NULL::role))::text AS r`);
+  check("0004 adds 'viewer' and keeps every existing role", ["owner", "contributor", "executive", "engineer", "viewer"].every((x) => roles.some((r) => r.r === x)), roles.map((r) => r.r).join(","));
+  const membersAfter = await one(`SELECT u.email, m.role::text AS role FROM workspace_members m JOIN users u ON u.id = m.user_id ORDER BY u.email`);
+  check("0004 changes nobody's role", JSON.stringify(membersAfter) === JSON.stringify(members));
+  check("0004 can be run again safely", again === "", again);
+
   // 4. The OLD app code still works on the new database (the window between
   //    running the SQL and the new code going live).
   const oldStyle = await one(`SELECT id FROM workspaces LIMIT 1`);

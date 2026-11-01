@@ -19,6 +19,7 @@ export const roleEnum = pgEnum("role", [
   "contributor", // bulk-enters feedback, triages
   "executive", // dashboards, trends, roadmap (read + comment)
   "engineer", // browses themes + evidence (read)
+  "viewer", // read-only: sees everything, changes nothing
 ]);
 
 export const sourceKindEnum = pgEnum("source_kind", [

@@ -20,7 +20,8 @@ export type CreateUserState = {
 
 export type RemoveUserState = { error?: string; ok?: string };
 
-const ROLES = ["owner", "contributor", "executive", "engineer"];
+const ROLES = ["owner", "contributor", "executive", "engineer", "viewer"];
+const ROLE_NAMES: Record<string, string> = { owner: "an owner", contributor: "a contributor", executive: "an executive", engineer: "an engineer", viewer: "a viewer (view only)" };
 
 /**
  * Creates a teammate account.
@@ -230,6 +231,57 @@ export async function resetMemberPassword(_prev: ResetPasswordState, formData: F
       entityId: row.user.id,
     });
     return { ok: `Temporary password set for ${row.user.name}.`, temp: { email: row.user.email, password } };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}
+
+export type RoleChangeState = { error?: string; ok?: string };
+
+/**
+ * Changes someone's role in THIS workspace. Owner only. You can't change your
+ * own role (so an owner can't lock themselves out by accident), and the last
+ * owner can't be demoted.
+ */
+export async function changeMemberRole(_prev: RoleChangeState, formData: FormData): Promise<RoleChangeState> {
+  try {
+    const ctx = await requireWorkspace();
+    if (ctx.role !== "owner") return { error: "Only the workspace owner can change roles." };
+    const id = String(formData.get("id") ?? "");
+    const role = String(formData.get("role") ?? "");
+    if (!ROLES.includes(role)) return { error: "Pick a valid role." };
+    if (id === ctx.user.id) return { error: "You can't change your own role." };
+    const db = await getDb();
+    const [row] = await db
+      .select({ role: schema.workspaceMembers.role, name: schema.users.name })
+      .from(schema.workspaceMembers)
+      .innerJoin(schema.users, eq(schema.workspaceMembers.userId, schema.users.id))
+      .where(and(eq(schema.workspaceMembers.workspaceId, ctx.workspace.id), eq(schema.workspaceMembers.userId, id)))
+      .limit(1);
+    if (!row) return { error: "That person isn't in this workspace." };
+    if (row.role === role) return { ok: "No change." };
+    if (row.role === "owner") {
+      const [{ n }] = await db
+        .select({ n: count() })
+        .from(schema.workspaceMembers)
+        .where(and(eq(schema.workspaceMembers.workspaceId, ctx.workspace.id), eq(schema.workspaceMembers.role, "owner")));
+      if (Number(n) <= 1) return { error: "They're the only owner, so they can't be changed to another role." };
+    }
+    await db
+      .update(schema.workspaceMembers)
+      .set({ role: role as RoleT })
+      .where(and(eq(schema.workspaceMembers.workspaceId, ctx.workspace.id), eq(schema.workspaceMembers.userId, id)));
+    await logAudit({
+      workspaceId: ctx.workspace.id,
+      actorId: ctx.user.id,
+      actorLabel: ctx.user.name,
+      action: "member.role_changed",
+      entityType: "user",
+      entityId: id,
+      after: { from: row.role, to: role },
+    });
+    revalidatePath("/settings");
+    return { ok: `${row.name} is now ${ROLE_NAMES[role] ?? role}.` };
   } catch (e) {
     return { error: (e as Error).message };
   }
