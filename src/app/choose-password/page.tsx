@@ -1,3 +1,4 @@
+import { FullLogo } from "@/components/brand";
 import { redirect } from "next/navigation";
 import { authMode } from "@/lib/supabase/env";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -17,9 +18,8 @@ export default async function ChoosePasswordPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-bg px-6">
       <div className="w-full max-w-md">
-        <div className="mb-7 flex items-center justify-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg text-white" style={{ background: "linear-gradient(135deg,#4F46E5,#7C3AED)" }}>✦</div>
-          <span className="text-[22px] font-extrabold tracking-tight">Insight Hub</span>
+        <div className="mb-7">
+          <FullLogo />
         </div>
         <ChooseForm email={data.user.email ?? ""} />
         <form action={signOut} className="mt-4 text-center">

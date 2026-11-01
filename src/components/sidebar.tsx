@@ -1,5 +1,6 @@
 "use client";
 
+import { BrandIcon } from "@/components/brand";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { WorkspaceSwitcher, type SwitcherItem } from "@/components/workspace-switcher";
@@ -54,12 +55,7 @@ export function Sidebar({
     <nav className="sticky top-0 flex h-screen w-[240px] shrink-0 flex-col gap-1 border-r border-border bg-surface p-3">
       {/* logo */}
       <div className="flex items-center gap-2.5 px-2 pt-1">
-        <div
-          className="flex h-[30px] w-[30px] items-center justify-center rounded-lg text-white"
-          style={{ background: "linear-gradient(135deg,#4F46E5,#7C3AED)" }}
-        >
-          <Sparkles size={15} />
-        </div>
+        <BrandIcon size={30} />
         <span className="text-[18px] font-extrabold tracking-tight">{APP_NAME}</span>
       </div>
       <div className="pl-12 pb-3 text-[12px] text-muted">{tenantName}</div>

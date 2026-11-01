@@ -1,3 +1,4 @@
+import { FullLogo } from "@/components/brand";
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { RECOVERY_COOKIE, verifyRecoveryToken } from "@/lib/recovery";
@@ -24,9 +25,8 @@ export default async function ResetPasswordPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-bg px-6">
       <div className="w-full max-w-md">
-        <div className="mb-7 flex items-center justify-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg text-white" style={{ background: "linear-gradient(135deg,#4F46E5,#7C3AED)" }}>✦</div>
-          <span className="text-[22px] font-extrabold tracking-tight">Insight Hub</span>
+        <div className="mb-7">
+          <FullLogo />
         </div>
         {valid && email ? (
           <ResetForm email={email} />
