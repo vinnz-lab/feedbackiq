@@ -84,6 +84,16 @@ async function main() {
   check("0004 changes nobody's role", JSON.stringify(membersAfter) === JSON.stringify(members));
   check("0004 can be run again safely", again === "", again);
 
+  // 3e. 0005: incoming webhook.
+  await run("drizzle/0005_incoming_webhook.sql");
+  const kinds = await one(`SELECT unnest(enum_range(NULL::source_kind))::text AS k`);
+  check("0005 adds the 'webhook' source type, keeping the others", ["email", "spreadsheet", "paste", "webhook"].every((x) => kinds.some((r) => r.k === x)));
+  const wh = await one(`SELECT count(*) n, bool_or(c.relrowsecurity) rls FROM incoming_webhooks, (SELECT relrowsecurity FROM pg_class WHERE relname='incoming_webhooks') c`);
+  const rls5 = await one(`SELECT relrowsecurity FROM pg_class WHERE relname = 'incoming_webhooks'`);
+  check("0005 adds the webhook table, empty, protected from the public API", Number(wh[0]?.n ?? 0) === 0 && rls5[0].relrowsecurity === true);
+  const after5 = await one(`SELECT (SELECT count(*) FROM feedback_items) items, (SELECT count(*) FROM themes) themes, (SELECT count(*) FROM users) users`);
+  check("0005 changes no existing data", JSON.stringify(after5) === JSON.stringify(after));
+
   // 4. The OLD app code still works on the new database (the window between
   //    running the SQL and the new code going live).
   const oldStyle = await one(`SELECT id FROM workspaces LIMIT 1`);

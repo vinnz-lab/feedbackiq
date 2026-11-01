@@ -24,7 +24,7 @@ import { currentCan } from "@/lib/permissions";
 export const dynamic = "force-dynamic";
 
 const KIND_ICON: Record<string, string> = {
-  email: "📧", recording: "🎙", transcript: "🎙", spreadsheet: "📊", note: "📝", paste: "📋",
+  email: "📧", recording: "🎙", transcript: "🎙", spreadsheet: "📊", note: "📝", paste: "📋", webhook: "🔌"
 };
 
 export default async function ThemeDetailPage({

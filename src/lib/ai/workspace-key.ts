@@ -62,13 +62,13 @@ export async function resolveAiKey(workspaceId: string): Promise<AiKey> {
       return { key: decryptSecret(row.encryptedKey), source: "workspace" };
     } catch {
       throw new NoAiKeyError(
-        "This workspace's saved AI key can't be read. Its owner should add the key again in Settings → AI connection.",
+        "This workspace's saved AI key can't be read. Its owner should add the key again in Integrations → AI.",
       );
     }
   }
   if (row && !row.allowPlatformKey) {
     throw new NoAiKeyError(
-      "This workspace needs its own AI key. Its owner can add one in Settings → AI connection.",
+      "This workspace needs its own AI key. Its owner can add one in Integrations → AI.",
     );
   }
   const platform = process.env.GEMINI_API_KEY;

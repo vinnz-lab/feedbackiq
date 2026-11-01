@@ -39,7 +39,7 @@ const KIND_ICON: Record<string, string> = {
   transcript: "🎙",
   spreadsheet: "📊",
   note: "📝",
-  paste: "📋",
+  paste: "📋", webhook: "🔌"
 };
 
 export function mixString(mix: Record<string, number>) {

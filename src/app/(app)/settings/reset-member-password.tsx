@@ -37,7 +37,7 @@ export function ResetPasswordButton({
   }
 
   if (state.temp) {
-    const text = `Your FeedbackIQ password has been reset.\n\nSign in: ${typeof window !== "undefined" ? window.location.origin : ""}/login\nEmail: ${state.temp.email}\nTemporary password: ${state.temp.password}\n\nYou'll be asked to choose your own password straight away.`;
+    const text = `Your Insight Hub password has been reset.\n\nSign in: ${typeof window !== "undefined" ? window.location.origin : ""}/login\nEmail: ${state.temp.email}\nTemporary password: ${state.temp.password}\n\nYou'll be asked to choose your own password straight away.`;
     return (
       <div className="basis-full rounded-[10px] border p-3" style={{ background: "var(--emerald-soft)", borderColor: "var(--emerald)" }}>
         <div className="text-[12px] font-semibold" style={{ color: "var(--emerald)" }}>

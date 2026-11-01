@@ -26,7 +26,7 @@ export default async function ResetPasswordPage() {
       <div className="w-full max-w-md">
         <div className="mb-7 flex items-center justify-center gap-2.5">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg text-white" style={{ background: "linear-gradient(135deg,#4F46E5,#7C3AED)" }}>✦</div>
-          <span className="text-[22px] font-extrabold tracking-tight">FeedbackIQ</span>
+          <span className="text-[22px] font-extrabold tracking-tight">Insight Hub</span>
         </div>
         {valid && email ? (
           <ResetForm email={email} />

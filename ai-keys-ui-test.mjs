@@ -32,7 +32,7 @@ async function runAi(s) {
 
 console.log("Your own workspace:");
 const jamie = await session("Jamie Lee");
-await jamie.page.goto(base + "/settings", { waitUntil: "networkidle" });
+await jamie.page.goto(base + "/integrations", { waitUntil: "networkidle" });
 check(/Using the platform's AI key/.test(await aiSection(jamie.page).innerText()), "starts on the platform key");
 await jamie.page.getByLabel("Gemini API key").fill("AIzaSyFAKE-not-a-real-key-000000000000");
 await jamie.page.getByRole("button", { name: "Check and save" }).click();
@@ -45,7 +45,7 @@ check(!/AIzaSyFAKE/.test(await jamie.page.content()), "the pasted key isn't echo
 
 console.log("\nA contributor:");
 const tom = await session("Tom Becker");
-await tom.page.goto(base + "/settings", { waitUntil: "networkidle" });
+await tom.page.goto(base + "/integrations", { waitUntil: "networkidle" });
 const ts = await aiSection(tom.page).innerText();
 check(/Using the platform's AI key/.test(ts) && /Only the workspace owner can change/.test(ts) && (await tom.page.getByLabel("Gemini API key").count()) === 0, "sees which key is used, can't change it");
 
@@ -63,7 +63,7 @@ const toggle = jamie.page.getByLabel("Priya's testing may use your AI key");
 check((await toggle.count()) === 1 && !(await toggle.isChecked()), "in your list, her workspace shows 'Uses your AI key' off");
 
 const priya = await session("Priya Patel");
-await priya.page.goto(base + "/settings", { waitUntil: "networkidle" });
+await priya.page.goto(base + "/integrations", { waitUntil: "networkidle" });
 check(/No AI key — AI features are off/.test(await aiSection(priya.page).innerText()), "she's told AI is off until she adds a key");
 check((await priya.page.getByLabel("Gemini API key").count()) === 1, "and, as owner, she can add one");
 await fetch(base + "/api/ingest", { method: "POST", headers: { "Content-Type": "application/json", Cookie: await priya.cookie() }, body: JSON.stringify({ paste: "PRIYA feedback about exports being slow " + Date.now() }) });
@@ -75,7 +75,7 @@ await toggle.check();
 await jamie.page.waitForTimeout(1500);
 await jamie.page.reload({ waitUntil: "networkidle" });
 check(await jamie.page.getByLabel("Priya's testing may use your AI key").isChecked(), "the switch stays on");
-await priya.page.goto(base + "/settings", { waitUntil: "networkidle" });
+await priya.page.goto(base + "/integrations", { waitUntil: "networkidle" });
 check(/Using the platform's AI key/.test(await aiSection(priya.page).innerText()), "her Settings now says she's on the platform key");
 t = await runAi(priya);
 check(/No AI key is configured for this app yet/.test(t), "and AI now goes down the platform-key path (this test server has no platform key)", t.match(/⚠.*$/m)?.[0]);

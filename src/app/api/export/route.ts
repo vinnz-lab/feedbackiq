@@ -76,7 +76,7 @@ export async function GET() {
       exportedAt: new Date().toISOString(),
       exportedBy: user.email,
       note:
-        "FeedbackIQ export of ONE workspace (" + ctx.workspace.name + "). Everything in it is included, so this file is enough " +
+        "Insight Hub export of ONE workspace (" + ctx.workspace.name + "). Everything in it is included, so this file is enough " +
         "to rebuild that workspace. Keep it somewhere safe — it contains customer " +
         "names and feedback.",
       counts: {
@@ -131,7 +131,7 @@ export async function GET() {
     return new Response(JSON.stringify(payload, null, 2), {
       headers: {
         "Content-Type": "application/json",
-        "Content-Disposition": `attachment; filename="feedbackiq-${ctx.workspace.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-backup-${stamp}.json"`,
+        "Content-Disposition": `attachment; filename="insight-hub-${ctx.workspace.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-backup-${stamp}.json"`,
         "Cache-Control": "no-store",
       },
     });

@@ -63,7 +63,7 @@ console.log("\nExport contents:");
 if (ownerOk) {
   const disp = ownerOk.headers.get("content-disposition") ?? "";
   check("downloads as a file", /attachment/.test(disp), disp);
-  check("filename names the workspace and the date", /feedbackiq-[a-z0-9-]+-backup-\d{4}-\d{2}-\d{2}\.json/.test(disp), disp);
+  check("filename names the workspace and the date", /insight-hub-[a-z0-9-]+-backup-\d{4}-\d{2}-\d{2}\.json/.test(disp), disp);
 
   const dump = await ownerOk.json();
   const tables = Object.keys(dump.data ?? {});

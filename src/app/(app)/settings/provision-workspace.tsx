@@ -26,7 +26,7 @@ export function ProvisionWorkspace({
   const onRemoved = useCallback((m: string) => setRemovedNotes((n) => (n.includes(m) ? n : [...n, m])), []);
   const creds = state.credentials;
   const shareText = creds
-    ? `You've been given your own FeedbackIQ workspace, “${creds.workspace}”.\n\nSign in: ${typeof window !== "undefined" ? window.location.origin : ""}/login\nEmail: ${creds.email}\nPassword: ${creds.password}`
+    ? `You've been given your own Insight Hub workspace, “${creds.workspace}”.\n\nSign in: ${typeof window !== "undefined" ? window.location.origin : ""}/login\nEmail: ${creds.email}\nPassword: ${creds.password}`
     : "";
 
   return (

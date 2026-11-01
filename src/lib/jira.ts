@@ -157,7 +157,7 @@ export async function createJiraIssue(
           issuetype: { name: issueType },
           summary,
           description,
-          ...(withLabels ? { labels: ["feedbackiq"] } : {}),
+          ...(withLabels ? { labels: ["insight-hub"] } : {}),
         },
       },
     });
@@ -237,6 +237,7 @@ const KIND_LABEL: Record<string, string> = {
   spreadsheet: "Spreadsheet",
   note: "Note",
   paste: "Pasted note",
+  webhook: "Sent in by another app",
 };
 
 function shorten(s: string, max: number) {
@@ -295,7 +296,7 @@ export function buildJiraTicket(input: {
     return { q, by: attribution(it, input.nameMode) };
   });
 
-  const content: unknown[] = [para(text("Raised from customer feedback collected in FeedbackIQ."))];
+  const content: unknown[] = [para(text("Raised from customer feedback collected in Insight Hub."))];
   if (input.summary) content.push(heading("Why this matters"), para(text(input.summary)));
   content.push(heading("Evidence"), bullets([text(facts)]));
   if (quotes.length) {
@@ -304,19 +305,19 @@ export function buildJiraTicket(input: {
       bullets(quotes.map(({ q, by }) => [...text(`“${q}”`, [{ type: "em" }]), ...text(by ? ` — ${by}` : "")])),
     );
   }
-  content.push(para(text("See all the feedback in FeedbackIQ", [{ type: "link", attrs: { href: input.link } }])));
+  content.push(para(text("See all the feedback in Insight Hub", [{ type: "link", attrs: { href: input.link } }])));
 
   const preview = [
     summary,
     "",
-    "Raised from customer feedback collected in FeedbackIQ.",
+    "Raised from customer feedback collected in Insight Hub.",
     ...(input.summary ? ["", "Why this matters", input.summary] : []),
     "",
     "Evidence",
     `• ${facts}`,
     ...(quotes.length ? ["", "What customers said", ...quotes.map(({ q, by }) => `• “${q}”${by ? ` — ${by}` : ""}`)] : []),
     "",
-    `See all the feedback in FeedbackIQ: ${input.link}`,
+    `See all the feedback in Insight Hub: ${input.link}`,
   ].join("\n");
 
   return { summary, description: { type: "doc", version: 1, content }, preview };

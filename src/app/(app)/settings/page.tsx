@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { listMembers, ROLE_LABEL, initials } from "@/lib/auth";
 import { requireWorkspace } from "@/lib/workspace";
 import { authMode } from "@/lib/supabase/env";
@@ -14,11 +15,6 @@ import { ResetPasswordButton } from "./reset-member-password";
 import { RoleSelect } from "./role-select";
 import { resetMemberPassword } from "./team-actions";
 import { canResetPassword, workspaceCountFor } from "@/lib/password-admin";
-import { AiConnection } from "./ai-connection";
-import { JiraConnection } from "./jira-connection";
-import { connectionView, getJiraConnection } from "@/lib/jira-workspace";
-import { getAiKeyStatus } from "@/lib/ai/workspace-key";
-import { canEncrypt } from "@/lib/secret-box";
 import { isPlatformAdmin } from "@/lib/platform";
 import { listProvisioned } from "@/lib/platform-data";
 import { and, count, eq } from "drizzle-orm";
@@ -68,8 +64,6 @@ export default async function SettingsPage() {
     });
     resetBlocked.set(u.id, d.ok ? null : d.reason);
   }
-  const aiStatus = await getAiKeyStatus(ctx.workspace.id);
-  const jiraView = connectionView(await getJiraConnection(ctx.workspace.id));
   const platformAdmin = isPlatformAdmin(me.email);
   const provisioned = platformAdmin
     ? (await listProvisioned(me.id)).map((p) => ({ ...p, createdAt: p.createdAt.toISOString() }))
@@ -90,13 +84,10 @@ export default async function SettingsPage() {
 
       {platformAdmin && <ProvisionWorkspace provisioned={provisioned} canResetPasswords={mode === "supabase"} />}
 
-      <AiConnection
-        status={{ ...aiStatus, updatedAt: aiStatus.updatedAt ? aiStatus.updatedAt.toISOString() : null }}
-        isOwner={isOwner}
-        canSave={canEncrypt()}
-      />
-
-      <JiraConnection view={jiraView} isOwner={isOwner} canSave={canEncrypt()} />
+      <p className="mb-6 rounded-[10px] border border-border bg-surface px-4 py-3 text-[12.5px] text-muted">
+        The AI key, Jira and other connections now live in{" "}
+        <Link href="/integrations" className="font-semibold text-indigo">Integrations</Link>.
+      </p>
 
       {isOwner && (
         <WorkspaceDetails name={ctx.workspace.name} description={ctx.workspace.description ?? ""} />

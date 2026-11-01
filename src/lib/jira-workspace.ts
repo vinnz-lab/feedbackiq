@@ -45,12 +45,12 @@ export function connectionView(c: JiraConnection | null) {
 /** Decrypted login for this workspace's Jira. Throws a plain-language error if it can't be used. */
 export async function jiraAuthFor(workspaceId: string): Promise<{ auth: JiraAuth; conn: JiraConnection & { projectKey: string } }> {
   const c = await getJiraConnection(workspaceId);
-  if (!isConnected(c)) throw new Error("Connect Jira first, in Settings → Jira.");
+  if (!isConnected(c)) throw new Error("Connect Jira first, in Integrations → Jira.");
   let token: string;
   try {
     token = decryptSecret(c.encryptedToken);
   } catch {
-    throw new Error("The saved Jira token can't be read. Its owner should connect Jira again in Settings.");
+    throw new Error("The saved Jira token can't be read. Its owner should connect Jira again in Integrations.");
   }
   return { auth: { site: c.siteUrl, email: c.authEmail, token }, conn: c };
 }

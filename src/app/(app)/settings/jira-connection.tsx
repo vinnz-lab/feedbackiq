@@ -81,8 +81,8 @@ export function JiraConnection({ view, isOwner, canSave }: { view: JiraView; isO
                 ))}
               </div>
               <p className="mt-1 text-[11.5px] text-muted">
-                Masking and leaving out apply to the names FeedbackIQ knows (customer, contact, speaker) wherever they
-                appear. A name typed inside a quote that FeedbackIQ doesn&apos;t know about can&apos;t be spotted.
+                Masking and leaving out apply to the names Insight Hub knows (customer, contact, speaker) wherever they
+                appear. A name typed inside a quote that Insight Hub doesn&apos;t know about can&apos;t be spotted.
               </p>
             </fieldset>
             <div className="flex flex-wrap items-center gap-3 sm:col-span-2">

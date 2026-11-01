@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 const KIND_LABEL: Record<string, string> = {
   email: "Email", recording: "Recording", transcript: "Transcript",
-  spreadsheet: "Spreadsheet", note: "Note", paste: "Paste",
+  spreadsheet: "Spreadsheet", note: "Note", paste: "Paste", webhook: "Webhook"
 };
 
 function weekKey(d: Date) {

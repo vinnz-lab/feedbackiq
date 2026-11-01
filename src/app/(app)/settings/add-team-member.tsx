@@ -28,7 +28,7 @@ export function AddTeamMember({ supabaseActive }: { supabaseActive: boolean }) {
 
   const creds = state.credentials;
   const shareText = creds
-    ? `You've been given access to FeedbackIQ.\n\nSign in: ${typeof window !== "undefined" ? window.location.origin : ""}/login\nEmail: ${creds.email}\nPassword: ${creds.password}`
+    ? `You've been given access to Insight Hub.\n\nSign in: ${typeof window !== "undefined" ? window.location.origin : ""}/login\nEmail: ${creds.email}\nPassword: ${creds.password}`
     : "";
 
   return (

@@ -1,5 +1,5 @@
 /**
- * The platform owner: the person who runs FeedbackIQ and may create workspaces.
+ * The platform owner: the person who runs Insight Hub and may create workspaces.
  *
  * Set by environment variable, not in the database, so it can't be granted
  * through the app itself. PLATFORM_ADMIN_EMAILS is a comma-separated list; if it

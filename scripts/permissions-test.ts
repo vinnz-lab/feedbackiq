@@ -38,6 +38,7 @@ async function main() {
     ["src/app/(app)/settings/jira-actions.ts", OWNER, "connect Jira"],
     ["src/app/(app)/settings/ai-key-actions.ts", OWNER, "AI key"],
     ["src/app/(app)/settings/clear-register-actions.ts", OWNER, "clear register"],
+    ["src/app/(app)/integrations/webhook-actions.ts", /await owner\(\)/, "incoming webhook"],
     // resetMemberPassword uses the stricter canResetPassword rule (owner, or the platform owner).
     ["src/app/(app)/settings/team-actions.ts", /ctx\.role !== "owner"|canResetPassword\(\{/, "team"],
   ];
