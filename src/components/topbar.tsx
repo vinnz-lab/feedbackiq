@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Search, Moon, Sun } from "lucide-react";
+import { Moon, Sun } from "lucide-react";
+import { SearchBox } from "@/components/search-box";
 import { NotificationBell } from "@/components/notification-bell";
 import { NAV } from "@/lib/nav";
 import { signOut } from "@/app/login/actions";
@@ -57,13 +58,7 @@ export function Topbar({
         {workspaceName} · <b className="font-semibold text-fg">{crumb}</b>
       </div>
 
-      <div className="relative max-w-[400px] flex-1">
-        <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" />
-        <input
-          placeholder="Search feedback, themes, sources…"
-          className="w-full rounded-lg border border-border bg-bg py-2 pl-8 pr-3 text-[13px] outline-none focus:border-indigo"
-        />
-      </div>
+      <SearchBox />
 
       <div className="ml-auto flex items-center gap-2">
         <button
