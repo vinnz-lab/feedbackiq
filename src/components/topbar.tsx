@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Search, Bell, Moon, Sun } from "lucide-react";
+import { Search, Moon, Sun } from "lucide-react";
+import { NotificationBell } from "@/components/notification-bell";
 import { NAV } from "@/lib/nav";
 import { signOut } from "@/app/login/actions";
 
@@ -28,9 +29,12 @@ function useThemeToggle() {
 export function Topbar({
   user,
   workspaceName = "Workspace",
+  showSwitchProfile = false,
 }: {
   user?: { name: string; role: string; initials: string };
   workspaceName?: string;
+  /** Only with the passwordless test sign-in; real accounts sign out instead. */
+  showSwitchProfile?: boolean;
 }) {
   const pathname = usePathname();
   const { theme, toggle } = useThemeToggle();
@@ -69,13 +73,7 @@ export function Topbar({
         >
           {theme === "light" ? <Moon size={15} /> : <Sun size={15} />}
         </button>
-        <button className="relative flex h-[34px] w-[34px] items-center justify-center rounded-lg border border-border bg-surface text-muted hover:bg-hover hover:text-fg">
-          <Bell size={15} />
-          <span
-            className="absolute right-2 top-1.5 h-[7px] w-[7px] rounded-full border-[1.5px]"
-            style={{ background: "var(--rose)", borderColor: "var(--surface)" }}
-          />
-        </button>
+        <NotificationBell />
 
         <div className="relative" ref={menuRef}>
           <button
@@ -90,6 +88,7 @@ export function Topbar({
                 <div className="text-[13px] font-semibold">{user?.name}</div>
                 <div className="text-[11.5px] text-muted">{user?.role}</div>
               </div>
+              {showSwitchProfile && (
               <Link
                 href="/login"
                 className="block px-4 py-2.5 text-[13px] hover:bg-hover"
@@ -97,6 +96,7 @@ export function Topbar({
               >
                 Switch profile
               </Link>
+              )}
               <form action={signOut}>
                 <button
                   type="submit"
