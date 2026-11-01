@@ -144,6 +144,7 @@ export async function refreshFromJira(): Promise<RefreshResult> {
     if (!rows.length) return { ok: true, message: "No roadmap items are linked to Jira yet." };
 
     let changed = 0;
+    const changes: { key: string; title: string; status: string }[] = [];
     let same = 0;
     let missing = 0;
     let elsewhere = 0;
@@ -167,6 +168,7 @@ export async function refreshFromJira(): Promise<RefreshResult> {
         continue;
       }
       const next = mapJiraStatus(s.category, s.resolution);
+      if (next !== e.status || (e.jiraStatus && e.jiraStatus !== s.name)) changes.push({ key: e.jiraKey!, title: e.title, status: s.name });
       if (next !== e.status) changed++;
       else same++;
       await db
@@ -187,7 +189,7 @@ export async function refreshFromJira(): Promise<RefreshResult> {
       action: "jira.refreshed",
       entityType: "workspace",
       entityId: ctx.workspace.id,
-      after: { checked: rows.length, changed, missing },
+      after: { checked: rows.length, changed, missing, changes: changes.slice(0, 20) },
     });
     revalidatePath("/roadmap");
     const parts = [`Checked ${rows.length} ticket${rows.length === 1 ? "" : "s"}`, `${changed} status${changed === 1 ? "" : "es"} updated`];

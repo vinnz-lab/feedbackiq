@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { and, eq, count } from "drizzle-orm";
 import { Sidebar } from "@/components/sidebar";
 import { Topbar } from "@/components/topbar";
+import { authMode } from "@/lib/supabase/env";
 import { getCurrentUser, initials, mustChangePassword, ROLE_LABEL } from "@/lib/auth";
 import { getWorkspaceInfo } from "@/lib/workspace-info";
 import { getWorkspaceContext } from "@/lib/workspace";
@@ -80,6 +81,7 @@ export default async function AppLayout({
         <Topbar
           user={{ name: user.name, role: ROLE_LABEL[ctx.role], initials: initials(user.name) }}
           workspaceName={info.workspaceName}
+          showSwitchProfile={authMode() === "dev"}
         />
         <main className="mx-auto w-full max-w-[1240px] flex-1 px-8 py-7 pb-20">
           {children}
