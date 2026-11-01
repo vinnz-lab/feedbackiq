@@ -169,6 +169,49 @@ export const incomingWebhooks = pgTable(
 );
 
 /* ============================ Taxonomy ============================ */
+/**
+ * Where a workspace's digest can be posted: a Slack or Microsoft Teams channel,
+ * by the channel's incoming-webhook address. The address lets anyone post to
+ * that channel, so it's stored encrypted (lib/secret-box.ts) and only a short
+ * hint is ever shown again.
+ */
+export const digestChannels = pgTable(
+  "digest_channels",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(), // "slack" | "teams"
+    encryptedUrl: text("encrypted_url").notNull(),
+    urlHint: text("url_hint").notNull(),
+    createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    lastPostedAt: timestamp("last_posted_at", { withTimezone: true }),
+  },
+  (t) => [uniqueIndex("digest_channels_ws_kind_uq").on(t.workspaceId, t.kind)],
+);
+
+/**
+ * A read-only link to a workspace's latest digest or its roadmap, for people
+ * without an account. Looked up by a SHA-256 hash of the secret; the secret is
+ * also kept encrypted so the owner can copy the link again. Turning a link off
+ * deletes the row, so the old address stops working for good.
+ */
+export const shareLinks = pgTable(
+  "share_links",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(), // "digest" | "roadmap"
+    tokenHash: text("token_hash").notNull(),
+    encryptedToken: text("encrypted_token").notNull(),
+    createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    viewCount: integer("view_count").default(0).notNull(),
+    lastViewedAt: timestamp("last_viewed_at", { withTimezone: true }),
+  },
+  (t) => [uniqueIndex("share_links_ws_kind_uq").on(t.workspaceId, t.kind), uniqueIndex("share_links_token_uq").on(t.tokenHash)],
+);
+
 export const productAreas = pgTable("product_areas", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),

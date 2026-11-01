@@ -46,6 +46,8 @@ export async function deleteWorkspaceCompletely(workspaceId: string): Promise<Re
     await tx.delete(schema.trackerConnections).where(eq(schema.trackerConnections.workspaceId, workspaceId));
     await tx.delete(schema.aiConfigs).where(eq(schema.aiConfigs.workspaceId, workspaceId));
     await tx.delete(schema.incomingWebhooks).where(eq(schema.incomingWebhooks.workspaceId, workspaceId));
+    await tx.delete(schema.digestChannels).where(eq(schema.digestChannels.workspaceId, workspaceId));
+    await tx.delete(schema.shareLinks).where(eq(schema.shareLinks.workspaceId, workspaceId));
     await tx.delete(schema.workspaceAiSettings).where(eq(schema.workspaceAiSettings.workspaceId, workspaceId));
     await tx.delete(schema.auditEvents).where(eq(schema.auditEvents.workspaceId, workspaceId));
     await tx.delete(schema.workspaceMembers).where(eq(schema.workspaceMembers.workspaceId, workspaceId));

@@ -43,5 +43,5 @@ export async function middleware(request: NextRequest) {
 // api/hooks: the incoming webhook has no session (the secret address is the
 // permission), so skip the Supabase round trip for every delivery.
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|api/hooks/).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|api/hooks/|share/).*)"],
 };

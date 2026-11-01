@@ -9,6 +9,9 @@ import { computeScore } from "@/lib/score";
 import { RoadmapBoard, type EnhCard } from "@/components/roadmap-board";
 import { ScoreEditor } from "@/components/score-editor";
 import type { EnhancementStatusT } from "@/db/schema";
+import { ShareLinkPanel } from "@/components/share-link-panel";
+import { getShareLink } from "@/lib/sharing-data";
+import { appOrigin } from "@/lib/jira-workspace";
 
 export const dynamic = "force-dynamic";
 // "Refresh from Jira" checks each linked ticket in turn.
@@ -34,6 +37,8 @@ export default async function RoadmapPage({
   const canEdit = can(ctx.role, "edit");
   const canJira = can(ctx.role, "jira");
   const jiraConnected = isConnected(await getJiraConnection(wsId));
+  const isOwner = ctx.role === "owner";
+  const [share, origin] = isOwner ? await Promise.all([getShareLink(wsId, "roadmap"), appOrigin()]) : [null, ""];
   const db = await getDb();
 
   // The linked theme's name is shown live, so a rename or merge can never leave
@@ -75,7 +80,12 @@ export default async function RoadmapPage({
             <RefreshFromJiraButton />
           </div>
         )}
-        <div className={`${canJira && jiraConnected && enh.some((e) => e.jiraKey) ? "" : "ml-auto "}inline-flex gap-1 rounded-[10px] border border-border bg-surface p-1`}>
+        {isOwner && (
+          <div className={canJira && jiraConnected && enh.some((e) => e.jiraKey) ? "" : "ml-auto"}>
+            <ShareLinkPanel kind="roadmap" view={share} origin={origin} />
+          </div>
+        )}
+        <div className={`${(canJira && jiraConnected && enh.some((e) => e.jiraKey)) || isOwner ? "" : "ml-auto "}inline-flex gap-1 rounded-[10px] border border-border bg-surface p-1`}>
           {(["backlog", "board"] as const).map((v) => (
             <Link
               key={v}

@@ -7,6 +7,8 @@ import { appOrigin, connectionView, getJiraConnection } from "@/lib/jira-workspa
 import { AiConnection } from "../settings/ai-connection";
 import { JiraConnection } from "../settings/jira-connection";
 import { WebhookCard } from "./webhook-card";
+import { DigestChannelsCard } from "@/components/digest-channels-card";
+import { getChannels } from "@/lib/sharing-data";
 
 export const dynamic = "force-dynamic";
 
@@ -15,11 +17,12 @@ export default async function IntegrationsPage() {
   const ctx = await requireWorkspace();
   const isOwner = ctx.role === "owner";
   const db = await getDb();
-  const [aiStatus, jira, [hook], origin] = await Promise.all([
+  const [aiStatus, jira, [hook], origin, channels] = await Promise.all([
     getAiKeyStatus(ctx.workspace.id),
     getJiraConnection(ctx.workspace.id),
     db.select().from(schema.incomingWebhooks).where(eq(schema.incomingWebhooks.workspaceId, ctx.workspace.id)).limit(1),
     appOrigin(),
+    getChannels(ctx.workspace.id),
   ]);
 
   return (
@@ -55,7 +58,11 @@ export default async function IntegrationsPage() {
         <div id="jira">
           <JiraConnection view={connectionView(jira)} isOwner={isOwner} canSave={canEncrypt()} />
         </div>
-        <Soon icon="📣" title="Slack & Teams digests" text="Post the weekly digest and rising themes to a channel." />
+        <div id="channels">
+          <Card icon="📣" title="Slack & Teams digests" subtitle="Post the weekly digest to a channel with one click from the Digest page — no app to install.">
+            <DigestChannelsCard channels={channels} isOwner={isOwner} canSave={canEncrypt()} />
+          </Card>
+        </div>
         <Soon icon="🧭" title="Linear, Azure DevOps & GitHub Issues" text="Send roadmap items to other delivery tools, like Jira." />
       </Group>
 
