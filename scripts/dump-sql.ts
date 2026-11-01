@@ -50,7 +50,7 @@ async function main() {
     "priority", "confidence", "review_status", "enhancement_status",
   ];
 
-  let out = `-- FeedbackIQ bootstrap — schema + seed. Safe to re-run (wipes prior FeedbackIQ tables first).\n\n`;
+  let out = `-- Insight Hub bootstrap — schema + seed. Safe to re-run (wipes prior Insight Hub tables first).\n\n`;
   out += `-- ============ RESET (clears any previous run) ============\n`;
   for (const t of RESET_TABLES) out += `DROP TABLE IF EXISTS "${t}" CASCADE;\n`;
   for (const e of RESET_ENUMS) out += `DROP TYPE IF EXISTS "${e}" CASCADE;\n`;

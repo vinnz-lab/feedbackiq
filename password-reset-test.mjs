@@ -40,13 +40,13 @@ await s.page.getByLabel("Email").fill("nobody-here@nowhere.test");
 await s.page.getByRole("button", { name: "Send reset link" }).click();
 await s.page.waitForTimeout(1500);
 const unknown = await s.page.locator("body").innerText();
-check(/If that email has a FeedbackIQ account/.test(unknown), "an unknown email gets the SAME answer (doesn't reveal who has an account)");
+check(/If that email has an Insight Hub account/.test(unknown), "an unknown email gets the SAME answer (doesn't reveal who has an account)");
 check((await lastLink()) === null, "…and no link was sent");
 await s.page.goto(base + "/forgot-password", { waitUntil: "networkidle" });
 await s.page.getByLabel("Email").fill("Jamie@Acme.test");
 await s.page.getByRole("button", { name: "Send reset link" }).click();
 await s.page.waitForTimeout(1500);
-check(/If that email has a FeedbackIQ account/.test(await s.page.locator("body").innerText()), "a real email gets the same message");
+check(/If that email has an Insight Hub account/.test(await s.page.locator("body").innerText()), "a real email gets the same message");
 const link = await lastLink();
 check(Boolean(link) && /token_hash=.*type=recovery/.test(link), "a reset link was 'emailed' (capitals in the email didn't matter)");
 

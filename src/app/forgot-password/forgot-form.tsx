@@ -17,7 +17,7 @@ export function ForgotForm({ linkProblem }: { linkProblem: boolean }) {
       {state.sent ? (
         <div className="mt-3">
           <div className="rounded-[8px] px-3 py-2.5 text-[12.5px]" style={{ background: "var(--emerald-soft)", color: "var(--emerald)" }}>
-            ✓ If that email has a FeedbackIQ account, a reset link is on its way. It works once, and only for a short time.
+            ✓ If that email has an Insight Hub account, a reset link is on its way. It works once, and only for a short time.
           </div>
           <p className="mt-3 text-[12px] text-muted">
             Nothing arrived after a few minutes? Check your spam folder, or ask whoever invited you to reset it for you.

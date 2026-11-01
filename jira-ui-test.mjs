@@ -82,7 +82,7 @@ check(/Jira: To Do/.test(await jamie.page.locator("tbody tr", { hasText: rowTitl
 const statusAfter = (await jamie.page.locator("tbody tr", { hasText: rowTitle }).locator("td").last().innerText()).trim();
 check(statusBefore !== "Under review" || statusAfter === "Planned", "an 'Under review' item becomes 'Planned' once ticketed", `${statusBefore} → ${statusAfter}`);
 const [issue] = await issues();
-check(issue?.fields.summary === rowTitle && issue.fields.issuetype.name === "Story" && issue.fields.labels?.includes("feedbackiq"), "the ticket has the title, issue type and feedbackiq label");
+check(issue?.fields.summary === rowTitle && issue.fields.issuetype.name === "Story" && issue.fields.labels?.includes("insight-hub"), "the ticket has the title, issue type and insight-hub label");
 const desc = JSON.stringify(issue?.fields.description ?? {});
 check(desc.includes(`${base}/themes/`), "it links back to the evidence in FeedbackIQ");
 

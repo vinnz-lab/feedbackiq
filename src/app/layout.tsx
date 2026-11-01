@@ -15,7 +15,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "FeedbackIQ",
+  title: "Insight Hub",
   description:
     "AI feedback intelligence — turn scattered emails, calls and spreadsheets into evidence-backed decisions.",
 };

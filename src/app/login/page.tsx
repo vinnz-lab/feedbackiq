@@ -18,14 +18,14 @@ export default async function LoginPage() {
           >
             ✦
           </div>
-          <span className="text-[22px] font-extrabold tracking-tight">FeedbackIQ</span>
+          <span className="text-[22px] font-extrabold tracking-tight">Insight Hub</span>
         </div>
 
         {mode === "supabase" && <PasswordForm />}
         {mode === "dev" && <DevPicker />}
         {mode === "unconfigured" && <NotConfigured />}
 
-        <p className="mt-4 text-center text-[11.5px] text-muted">FeedbackIQ</p>
+        <p className="mt-4 text-center text-[11.5px] text-muted">Insight Hub</p>
       </div>
     </div>
   );

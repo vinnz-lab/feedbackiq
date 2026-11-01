@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /* ============================================================
-   FeedbackIQ design tokens — ported from prototype v0.4
+   Insight Hub design tokens — ported from prototype v0.4
    Light + dark are a pure variable swap via [data-theme].
    ============================================================ */
 :root {

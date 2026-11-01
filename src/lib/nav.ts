@@ -14,4 +14,4 @@ export const NAV: NavItem[] = [
   { href: "/settings", label: "Settings", icon: "Settings" },
 ];
 
-export const APP_NAME = "FeedbackIQ";
+export const APP_NAME = "Insight Hub";

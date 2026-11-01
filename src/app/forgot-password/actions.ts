@@ -10,7 +10,7 @@ export type ForgotState = { sent?: boolean; error?: string };
  * Sends a password-reset link.
  *
  * Always gives the same answer whether or not the email has an account, so
- * this page can't be used to find out who uses FeedbackIQ.
+ * this page can't be used to find out who uses Insight Hub.
  */
 export async function requestPasswordReset(_prev: ForgotState, formData: FormData): Promise<ForgotState> {
   if (authMode() !== "supabase") return { error: "Password reset needs real sign-in (Supabase) to be switched on." };
