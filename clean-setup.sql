@@ -224,6 +224,22 @@ ALTER TABLE "workspace_ai_settings" ADD CONSTRAINT "workspace_ai_settings_update
 ALTER TABLE "workspace_ai_settings" ENABLE ROW LEVEL SECURITY;
 
 
+-- ============ JIRA ============
+ALTER TABLE "enhancements" ADD COLUMN "jira_url" text;--> statement-breakpoint
+ALTER TABLE "enhancements" ADD COLUMN "jira_status" text;--> statement-breakpoint
+ALTER TABLE "enhancements" ADD COLUMN "jira_status_category" text;--> statement-breakpoint
+ALTER TABLE "enhancements" ADD COLUMN "jira_synced_at" timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "tracker_connections" ADD COLUMN "site_url" text;--> statement-breakpoint
+ALTER TABLE "tracker_connections" ADD COLUMN "auth_email" text;--> statement-breakpoint
+ALTER TABLE "tracker_connections" ADD COLUMN "encrypted_token" text;--> statement-breakpoint
+ALTER TABLE "tracker_connections" ADD COLUMN "token_last4" text;--> statement-breakpoint
+ALTER TABLE "tracker_connections" ADD COLUMN "name_mode" text DEFAULT 'include' NOT NULL;--> statement-breakpoint
+ALTER TABLE "tracker_connections" ADD COLUMN "updated_by" uuid;--> statement-breakpoint
+ALTER TABLE "tracker_connections" ADD COLUMN "updated_at" timestamp with time zone DEFAULT now() NOT NULL;--> statement-breakpoint
+ALTER TABLE "tracker_connections" ADD CONSTRAINT "tracker_connections_updated_by_users_id_fk" FOREIGN KEY ("updated_by") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+-- (A brand-new database has no old rows to tidy, so no clean-up step is needed here.)
+CREATE UNIQUE INDEX "tracker_ws_uq" ON "tracker_connections" USING btree ("workspace_id");
+
 -- ============ ONE EMPTY WORKSPACE (the app needs this to exist) ============
 INSERT INTO "tenants" ("name") VALUES ('Test Environment');
 INSERT INTO "workspaces" ("tenant_id", "name", "description")

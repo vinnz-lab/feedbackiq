@@ -247,6 +247,10 @@ export const enhancements = pgTable(
     score: numeric("score", { precision: 4, scale: 1 }).default("0").notNull(),
     status: enhancementStatusEnum("status").notNull().default("review"),
     jiraKey: text("jira_key"),
+    jiraUrl: text("jira_url"),
+    jiraStatus: text("jira_status"),
+    jiraStatusCategory: text("jira_status_category"),
+    jiraSyncedAt: timestamp("jira_synced_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [index("enh_workspace_idx").on(t.workspaceId)],
@@ -259,15 +263,32 @@ export const evidenceLinks = pgTable("evidence_links", {
 });
 
 /* ============================ Integrations, digests, audit, config ============================ */
-export const trackerConnections = pgTable("tracker_connections", {
-  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
-  provider: text("provider").notNull().default("jira"),
-  projectKey: text("project_key"),
-  issueType: text("issue_type").default("Story"),
-  config: jsonb("config"),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-});
+/**
+ * A workspace's Jira Cloud connection (one per workspace).
+ * The API token is stored only as AES-256-GCM ciphertext (lib/secret-box.ts),
+ * never shown again after saving, and never included in backups.
+ */
+export const trackerConnections = pgTable(
+  "tracker_connections",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    provider: text("provider").notNull().default("jira"),
+    projectKey: text("project_key"),
+    issueType: text("issue_type").default("Story"),
+    config: jsonb("config"),
+    siteUrl: text("site_url"),
+    authEmail: text("auth_email"),
+    encryptedToken: text("encrypted_token"),
+    tokenLast4: text("token_last4"),
+    /** How customer names appear in tickets: include | mask | remove. */
+    nameMode: text("name_mode").notNull().default("include"),
+    updatedBy: uuid("updated_by").references(() => users.id, { onDelete: "set null" }),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex("tracker_ws_uq").on(t.workspaceId)],
+);
 
 export const digests = pgTable("digests", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),

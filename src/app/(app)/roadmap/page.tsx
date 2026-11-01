@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { desc, eq } from "drizzle-orm";
-import { currentWorkspaceId } from "@/lib/workspace";
+import { requireWorkspace } from "@/lib/workspace";
+import { getJiraConnection, isConnected } from "@/lib/jira-workspace";
+import { JiraCell, RefreshFromJiraButton } from "@/components/jira-cell";
 import { getDb, schema } from "@/db";
 import { computeScore } from "@/lib/score";
 import { RoadmapBoard, type EnhCard } from "@/components/roadmap-board";
@@ -8,6 +10,8 @@ import { ScoreEditor } from "@/components/score-editor";
 import type { EnhancementStatusT } from "@/db/schema";
 
 export const dynamic = "force-dynamic";
+// "Refresh from Jira" checks each linked ticket in turn.
+export const maxDuration = 300;
 
 const STATUS_LABEL: Record<string, { label: string; bg: string; fg: string }> = {
   review: { label: "Under review", bg: "var(--slate-soft)", fg: "var(--slate)" },
@@ -24,7 +28,10 @@ export default async function RoadmapPage({
 }) {
   const { view: rawView } = await searchParams;
   const view = rawView === "board" ? "board" : "backlog";
-  const wsId = await currentWorkspaceId();
+  const ctx = await requireWorkspace();
+  const wsId = ctx.workspace.id;
+  const isOwner = ctx.role === "owner";
+  const jiraConnected = isConnected(await getJiraConnection(wsId));
   const db = await getDb();
 
   // The linked theme's name is shown live, so a rename or merge can never leave
@@ -45,6 +52,8 @@ export default async function RoadmapPage({
     demand: e.demand,
     status: e.status,
     jiraKey: e.jiraKey,
+    jiraUrl: e.jiraUrl,
+    jiraStatus: e.jiraStatus,
     score: computeScore(e.benefit, e.effort, e.demand),
   }));
 
@@ -59,7 +68,12 @@ export default async function RoadmapPage({
             Prioritised from approved feedback · score = demand + benefit − effort
           </p>
         </div>
-        <div className="ml-auto inline-flex gap-1 rounded-[10px] border border-border bg-surface p-1">
+        {isOwner && jiraConnected && enh.some((e) => e.jiraKey) && (
+          <div className="ml-auto">
+            <RefreshFromJiraButton />
+          </div>
+        )}
+        <div className={`${isOwner && jiraConnected && enh.some((e) => e.jiraKey) ? "" : "ml-auto "}inline-flex gap-1 rounded-[10px] border border-border bg-surface p-1`}>
           {(["backlog", "board"] as const).map((v) => (
             <Link
               key={v}
@@ -108,6 +122,15 @@ export default async function RoadmapPage({
                           {idx + 1}
                         </span>
                         {e.title}
+                        <div className="pl-7 font-normal empty:hidden [&:not(:empty)]:mt-1.5">
+                          <JiraCell
+                            enhancementId={e.id}
+                            jiraKey={e.jiraKey}
+                            jiraUrl={e.jiraUrl}
+                            jiraStatus={e.jiraStatus}
+                            canSend={isOwner && jiraConnected}
+                          />
+                        </div>
                       </td>
                       <td className="px-3 py-2.5">
                         <span className="rounded-[7px] bg-[var(--indigo-soft)] px-2 py-0.5 font-extrabold text-indigo">

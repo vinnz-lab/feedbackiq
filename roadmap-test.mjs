@@ -24,7 +24,7 @@ check(n > 0, "roadmap lists items", `${n} rows`);
 check((await page.locator('input[aria-label="Benefit"]').count()) === n, "every row has an editable Benefit box");
 
 // Rows re-sort after an edit, so always find the row again by its title.
-const title = (await page.locator("tbody tr").first().locator("td").first().innerText()).replace(/^\s*\d+\s*/, "").trim();
+const title = (await page.locator("tbody tr").first().locator("td").first().innerText()).split("\n")[0].replace(/^\s*\d+\s*/, "").trim();
 const rowOf = () => page.locator("tbody tr", { hasText: title }).first();
 
 for (const [field, input, expected] of [
