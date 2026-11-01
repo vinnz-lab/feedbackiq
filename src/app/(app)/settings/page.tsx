@@ -14,6 +14,8 @@ import { ResetPasswordButton } from "./reset-member-password";
 import { resetMemberPassword } from "./team-actions";
 import { canResetPassword, workspaceCountFor } from "@/lib/password-admin";
 import { AiConnection } from "./ai-connection";
+import { JiraConnection } from "./jira-connection";
+import { connectionView, getJiraConnection } from "@/lib/jira-workspace";
 import { getAiKeyStatus } from "@/lib/ai/workspace-key";
 import { canEncrypt } from "@/lib/secret-box";
 import { isPlatformAdmin } from "@/lib/platform";
@@ -66,6 +68,7 @@ export default async function SettingsPage() {
     resetBlocked.set(u.id, d.ok ? null : d.reason);
   }
   const aiStatus = await getAiKeyStatus(ctx.workspace.id);
+  const jiraView = connectionView(await getJiraConnection(ctx.workspace.id));
   const platformAdmin = isPlatformAdmin(me.email);
   const provisioned = platformAdmin
     ? (await listProvisioned(me.id)).map((p) => ({ ...p, createdAt: p.createdAt.toISOString() }))
@@ -91,6 +94,8 @@ export default async function SettingsPage() {
         isOwner={isOwner}
         canSave={canEncrypt()}
       />
+
+      <JiraConnection view={jiraView} isOwner={isOwner} canSave={canEncrypt()} />
 
       {isOwner && (
         <WorkspaceDetails name={ctx.workspace.name} description={ctx.workspace.description ?? ""} />

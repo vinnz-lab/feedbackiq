@@ -57,6 +57,24 @@ async function main() {
   const after2 = await one(`SELECT (SELECT count(*) FROM feedback_items) items, (SELECT count(*) FROM themes) themes, (SELECT count(*) FROM users) users`);
   check("0002 changes no existing data", JSON.stringify(after2) === JSON.stringify(after));
 
+  // 3c. 0003: Jira. The live DB has a credential-less demo placeholder row; a
+  //     duplicate is simulated to prove the dedupe before the unique index.
+  await pg.exec(`INSERT INTO tracker_connections (workspace_id, provider, project_key, issue_type, created_at)
+    SELECT id, 'jira', 'OLD', 'Story', now() - interval '2 days' FROM workspaces;
+    INSERT INTO tracker_connections (workspace_id, provider, project_key, issue_type, created_at)
+    SELECT id, 'jira', 'ACME', 'Story', now() - interval '1 day' FROM workspaces;`);
+  await pg.exec(`INSERT INTO enhancements (workspace_id, title, jira_key) SELECT id, 'Linked item', 'ACME-231' FROM workspaces;`);
+  await run("drizzle/0003_jira_integration.sql");
+  const tc = await one(`SELECT project_key, name_mode, encrypted_token FROM tracker_connections`);
+  check("0003 keeps one connection per workspace (the newest placeholder)", tc.length === 1 && tc[0].project_key === "ACME", JSON.stringify(tc));
+  check("0003 defaults names to 'include' and has no token", tc[0].name_mode === "include" && tc[0].encrypted_token === null);
+  let dupErr = ""; try { await pg.exec(`INSERT INTO tracker_connections (workspace_id) SELECT id FROM workspaces`); } catch (e) { dupErr = (e as Error).message; }
+  check("0003 now refuses a second connection for the same workspace", /duplicate|unique/i.test(dupErr));
+  const linked = await one(`SELECT jira_key, jira_url FROM enhancements WHERE title = 'Linked item'`);
+  check("0003 keeps existing ticket keys on roadmap items", linked[0].jira_key === "ACME-231" && linked[0].jira_url === null);
+  const after3 = await one(`SELECT (SELECT count(*) FROM feedback_items) items, (SELECT count(*) FROM themes) themes, (SELECT count(*) FROM users) users`);
+  check("0003 changes no feedback, themes or users", JSON.stringify(after3) === JSON.stringify(after));
+
   // 4. The OLD app code still works on the new database (the window between
   //    running the SQL and the new code going live).
   const oldStyle = await one(`SELECT id FROM workspaces LIMIT 1`);

@@ -11,6 +11,8 @@ export type EnhCard = {
   demand: number;
   status: EnhancementStatusT;
   jiraKey: string | null;
+  jiraUrl?: string | null;
+  jiraStatus?: string | null;
 };
 
 const COLS: [EnhancementStatusT, string][] = [
@@ -73,10 +75,21 @@ export function RoadmapBoard({ enh }: { enh: EnhCard[] }) {
                     {e.score.toFixed(1)}
                   </span>
                   <span>◆ {e.demand} evidence</span>
-                  {e.jiraKey && (
-                    <span className="rounded-[5px] bg-[var(--indigo-soft)] px-1.5 py-0.5 font-semibold text-indigo">
-                      🔗 {e.jiraKey}
-                    </span>
+                  {e.jiraKey && e.jiraKey !== "__sending__" && (
+                    e.jiraUrl ? (
+                      <a
+                        href={e.jiraUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        draggable={false}
+                        title={e.jiraStatus ? `Jira: ${e.jiraStatus}` : undefined}
+                        className="rounded-[5px] bg-[var(--indigo-soft)] px-1.5 py-0.5 font-semibold text-indigo hover:underline"
+                      >
+                        🔗 {e.jiraKey}
+                      </a>
+                    ) : (
+                      <span className="rounded-[5px] bg-[var(--indigo-soft)] px-1.5 py-0.5 font-semibold text-indigo">🔗 {e.jiraKey}</span>
+                    )
                   )}
                 </div>
               </div>

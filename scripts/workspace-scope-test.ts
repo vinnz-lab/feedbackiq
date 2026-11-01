@@ -27,6 +27,7 @@ const ALLOW_UNSCOPED: Record<string, string> = {
   "src/lib/themes/rename.ts": "operates on a theme id already verified to be in the workspace",
   "src/app/(app)/register/transcribe-actions.ts": "updates rows taken from a workspace-scoped query",
   "src/app/(app)/settings/team-actions.ts": "counts a user's memberships across workspaces on purpose",
+  "src/lib/jira-workspace.ts": "reads the connection / builds the ticket for the workspace id it is given",
   "src/lib/ai/workspace-key.ts": "reads the settings row of the workspace id it is given",
   "src/lib/workspace-delete.ts": "deletes ONE workspace by id; callers check permission",
   "src/lib/platform-data.ts": "platform owner's list: names/owner/date of workspaces THEY set up, no content",
@@ -115,6 +116,19 @@ const ex = strip(readFileSync("src/app/api/export/route.ts", "utf8"));
 check("backups don't include AI keys", !/workspaceAiSettings/.test(ex));
 check("only the platform owner can block a workspace from their key, and only ones they set up",
   /function setPlatformKeyAllowed[\s\S]*isPlatformAdmin[\s\S]*You can only change workspaces you set up/.test(strip(readFileSync("src/app/(app)/settings/platform-actions.ts", "utf8"))));
+
+// --- Jira ------------------------------------------------------------------
+const rj = strip(readFileSync("src/app/(app)/roadmap/jira-actions.ts", "utf8"));
+check("only workspace owners can preview, send or refresh Jira", /ctx\.role !== "owner"/.test(rj) && (rj.match(/await ownerContext\(\)/g) ?? []).length === 3);
+check("sending claims the item first, so a double-click can't make two tickets", rj.indexOf("set({ jiraKey: SENDING") < rj.indexOf("createJiraIssue("));
+check("a failed send releases the claim", /finally \{[\s\S]*jiraKey: null/.test(rj));
+const sj = strip(readFileSync("src/app/(app)/settings/jira-actions.ts", "utf8"));
+check("only workspace owners can connect or disconnect Jira", (sj.match(/ctx\.role !== "owner"/g) ?? []).length === 2);
+check("a Jira connection is checked with Jira before it's saved", sj.indexOf("checkJiraConnection(") < sj.indexOf("encryptSecret(token)"));
+check("the Jira audit entry never contains the token", !/after: \{[^}]*token/i.test(sj));
+check("backups don't include the Jira token", /schema\.trackerConnections\.siteUrl/.test(ex) && !/encryptedToken/.test(ex));
+const jc = strip(readFileSync("src/lib/jira.ts", "utf8"));
+check("the Jira client only talks to *.atlassian.net and refuses redirects", /\\.atlassian\\\.net\$/.test(jc) && /redirect: "error"/.test(jc));
 
 const plat = strip(readFileSync("src/lib/platform.ts", "utf8"));
 check("platform owner comes from an env variable, not anything the app can change", /process\.env\.PLATFORM_ADMIN_EMAILS/.test(plat) && !/getDb/.test(plat));

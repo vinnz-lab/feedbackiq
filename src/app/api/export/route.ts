@@ -45,7 +45,20 @@ export async function GET() {
     const themes = await db.select().from(schema.themes).where(byWs(schema.themes));
     const feedbackItems = await db.select().from(schema.feedbackItems).where(byWs(schema.feedbackItems));
     const enhancements = await db.select().from(schema.enhancements).where(byWs(schema.enhancements));
-    const trackerConnections = await db.select().from(schema.trackerConnections).where(byWs(schema.trackerConnections));
+    // Connection settings only — the encrypted Jira token is never exported.
+    const trackerConnections = await db
+      .select({
+        id: schema.trackerConnections.id,
+        workspaceId: schema.trackerConnections.workspaceId,
+        provider: schema.trackerConnections.provider,
+        siteUrl: schema.trackerConnections.siteUrl,
+        projectKey: schema.trackerConnections.projectKey,
+        issueType: schema.trackerConnections.issueType,
+        nameMode: schema.trackerConnections.nameMode,
+        createdAt: schema.trackerConnections.createdAt,
+      })
+      .from(schema.trackerConnections)
+      .where(byWs(schema.trackerConnections));
     const digests = await db.select().from(schema.digests).where(byWs(schema.digests));
     const aiConfigs = await db.select().from(schema.aiConfigs).where(byWs(schema.aiConfigs));
     const auditEvents = await db.select().from(schema.auditEvents).where(byWs(schema.auditEvents));
