@@ -51,7 +51,7 @@ export default async function IntegrationsPage() {
           />
         </Card>
         <Soon icon="📧" title="Email forwarding" text="Forward customer emails to the workspace's own address." />
-        <Soon icon="💬" title="Slack" text="Collect feedback from a channel such as #customer-feedback." />
+        <Soon icon="💬" title="Collect feedback from Slack" text="Pick up messages from a channel such as #customer-feedback. Works today via Zapier → Incoming webhook." />
       </Group>
 
       <Group title="Send work out">
