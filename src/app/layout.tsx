@@ -14,10 +14,17 @@ const jetbrainsMono = JetBrains_Mono({
   weight: ["500", "600"],
 });
 
+const DESCRIPTION =
+  "Every customer voice. One clear roadmap. AI turns scattered feedback — surveys, emails, calls — into themes, a scored roadmap, digests and podcast-style audio briefings.";
+
 export const metadata: Metadata = {
-  title: "Insight Hub",
-  description:
-    "AI feedback intelligence — turn scattered emails, calls and spreadsheets into evidence-backed decisions.",
+  // Absolute links for the preview image. On Vercel this falls back to the production address automatically.
+  metadataBase: process.env.NEXT_PUBLIC_SITE_URL ? new URL(process.env.NEXT_PUBLIC_SITE_URL) : undefined,
+  title: { default: "Insight Hub — every customer voice, one clear roadmap", template: "%s · Insight Hub" },
+  description: DESCRIPTION,
+  applicationName: "Insight Hub",
+  openGraph: { type: "website", siteName: "Insight Hub", title: "Insight Hub — every customer voice, one clear roadmap", description: DESCRIPTION, locale: "en_GB" },
+  twitter: { card: "summary_large_image", title: "Insight Hub — every customer voice, one clear roadmap", description: DESCRIPTION },
 };
 
 // Set the theme before first paint to avoid a flash of the wrong mode.

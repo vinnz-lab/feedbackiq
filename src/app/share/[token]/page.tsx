@@ -1,3 +1,4 @@
+import { PrivacyLink } from "@/components/privacy-link";
 import type { Metadata } from "next";
 import { desc, eq } from "drizzle-orm";
 import { getDb, schema } from "@/db";
@@ -9,7 +10,7 @@ import { latestDigest, openShareLink } from "@/lib/sharing-data";
 
 export const dynamic = "force-dynamic";
 // Private links: never indexed, and the address isn't passed on to sites it links to.
-export const metadata: Metadata = { title: "Shared from Insight Hub", robots: { index: false, follow: false }, referrer: "no-referrer" };
+export const metadata: Metadata = { title: { absolute: "Shared from Insight Hub" }, robots: { index: false, follow: false }, referrer: "no-referrer" };
 
 const COLUMNS = [
   ["review", "Under review"],
@@ -32,6 +33,7 @@ function Shell({ children, workspace, what }: { children: React.ReactNode; works
         </div>
         {children}
         <p className="mt-8 text-center text-[11.5px] text-muted">Shared from Insight Hub — every customer voice, one clear roadmap.</p>
+        <PrivacyLink className="mt-1" />
       </div>
     </div>
   );

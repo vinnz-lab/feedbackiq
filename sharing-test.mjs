@@ -96,7 +96,7 @@ const anon = await (await b.newContext()).newPage();
 await anon.goto(digestUrl, { waitUntil: "networkidle" });
 let pub = await anon.locator("body").innerText();
 check(/SEEDDIGEST/.test(pub) && /Acme App · Feedback digest · read-only/.test(pub), "anyone with it sees the digest, without signing in");
-check((await anon.locator("nav").count()) === 0 && (await anon.locator("a[href^='/']").count()) === 0 && !/Settings|Sign out|Integrations/.test(pub), "and nothing else from the app — no menu, no links into it");
+check((await anon.locator("nav").count()) === 0 && (await anon.locator("a[href^='/']:not([href='/privacy'])").count()) === 0 && !/Settings|Sign out|Integrations/.test(pub), "and nothing else from the app — no menu, no links into it");
 check((await anon.locator('meta[name="robots"]').getAttribute("content"))?.includes("noindex") && (await anon.locator('meta[name="referrer"]').getAttribute("content")) === "no-referrer", "search engines are told not to index it");
 await jamie.reload({ waitUntil: "networkidle" });
 await jamie.getByRole("button", { name: /🔗 Share · on/ }).click();
