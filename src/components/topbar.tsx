@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { Moon, Sun } from "lucide-react";
 import { SearchBox } from "@/components/search-box";
 import { NotificationBell } from "@/components/notification-bell";
+import { FeedbackButton } from "@/components/feedback-button";
 import { NAV } from "@/lib/nav";
 import { signOut } from "@/app/login/actions";
 
@@ -31,11 +32,14 @@ export function Topbar({
   user,
   workspaceName = "Workspace",
   showSwitchProfile = false,
+  showFeedback = false,
 }: {
   user?: { name: string; role: string; initials: string };
   workspaceName?: string;
   /** Only with the passwordless test sign-in; real accounts sign out instead. */
   showSwitchProfile?: boolean;
+  /** Only when the platform owner has set where feedback goes. */
+  showFeedback?: boolean;
 }) {
   const pathname = usePathname();
   const { theme, toggle } = useThemeToggle();
@@ -61,6 +65,7 @@ export function Topbar({
       <SearchBox />
 
       <div className="ml-auto flex items-center gap-2">
+        {showFeedback && <FeedbackButton />}
         <button
           onClick={toggle}
           aria-label="Toggle dark mode"

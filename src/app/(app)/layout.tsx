@@ -3,6 +3,9 @@ import { and, eq, count } from "drizzle-orm";
 import { Sidebar } from "@/components/sidebar";
 import { Topbar } from "@/components/topbar";
 import { authMode } from "@/lib/supabase/env";
+import { hasSampleData } from "@/lib/sample-data";
+import { SampleBanner } from "@/components/sample-banner";
+import { appFeedbackUrl } from "@/lib/app-feedback";
 import { getCurrentUser, initials, mustChangePassword, ROLE_LABEL } from "@/lib/auth";
 import { getWorkspaceInfo } from "@/lib/workspace-info";
 import { getWorkspaceContext } from "@/lib/workspace";
@@ -65,6 +68,8 @@ export default async function AppLayout({
       ),
     );
 
+  const sample = await hasSampleData(ctx.workspace.id);
+
   return (
     <div className="flex min-h-screen">
       <Sidebar
@@ -82,7 +87,9 @@ export default async function AppLayout({
           user={{ name: user.name, role: ROLE_LABEL[ctx.role], initials: initials(user.name) }}
           workspaceName={info.workspaceName}
           showSwitchProfile={authMode() === "dev"}
+          showFeedback={Boolean(appFeedbackUrl())}
         />
+        {sample && <SampleBanner canEdit={can(ctx.role, "edit")} />}
         <main className="mx-auto w-full max-w-[1240px] flex-1 px-8 py-7 pb-20">
           {children}
         </main>
