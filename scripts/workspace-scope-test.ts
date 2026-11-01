@@ -104,15 +104,23 @@ for (const f of ["src/app/(app)/register/ai-actions.ts", "src/app/(app)/themes/a
   const s = strip(readFileSync(f, "utf8"));
   check(`${f.split("/").slice(-2).join("/")} runs on the workspace's AI key`, /withWorkspaceAi\(/.test(s) && /currentAiKey\(\)\?\.source/.test(s));
 }
-const gem = strip(readFileSync("src/lib/ai/gemini.ts", "utf8"));
-check("Gemini calls send the key in a header, never in the URL", /"x-goog-api-key": key/.test(gem) && !/\?key=/.test(gem));
+const gem = strip(readFileSync("src/lib/ai/client.ts", "utf8"));
+check("Gemini calls send the key in a header, never in the URL", /"x-goog-api-key": ai\.key/.test(gem) && !/\?key=/.test(gem));
+check("OpenAI and Claude calls send the key in a header too", /Authorization: `Bearer \$\{ai\.key\}`/.test(gem) && /"x-api-key": ai\.key/.test(gem));
+check("AI requests only ever go to the three providers' own addresses", (gem.match(/https:\/\/[a-z.]+/g) ?? []).every((u) => ["https://generativelanguage.googleapis.com", "https://api.openai.com", "https://api.anthropic.com"].includes(u)));
+const kact = strip(readFileSync("src/app/(app)/settings/ai-key-actions.ts", "utf8"));
+check("only owners can change the AI provider or key", (kact.match(/ctx\.role !== "owner"/g) ?? []).length >= 2);
+check("the audit trail records the key's last 4 characters, never the key", /after: \{ last4, provider, model, keptKey \}/.test(kact) && !/after: \{[^}]*\bkey\b[,}]/.test(kact));
 const wk = strip(readFileSync("src/lib/ai/workspace-key.ts", "utf8"));
 check("an unreadable saved key is an error, never a silent fall back to the platform key", /catch \{\s*throw new NoAiKeyError/.test(wk));
 check("a workspace blocked from the platform key can't use it", /!row\.allowPlatformKey\) \{\s*throw new NoAiKeyError/.test(wk));
 const ak = strip(readFileSync("src/app/(app)/settings/ai-key-actions.ts", "utf8"));
 check("only the workspace owner can set or remove its key", (ak.match(/ctx\.role !== "owner"/g) ?? []).length === 2);
-check("a key is checked with Google before it's saved", ak.indexOf("checkWithGoogle(key)") < ak.indexOf("encryptSecret(key)"));
-check("the audit log records only the last 4 characters", /after: \{ last4: values\.keyLast4 \}/.test(ak) && !/after: \{[^}]*key[,}]/.test(ak.replace(/last4/g, "")));
+{
+  const chk = ak.indexOf("await checkModel(provider, model, key)"), tst = ak.indexOf("await tryIt(provider, model, key)"), enc = ak.indexOf("encryptSecret(key)");
+  check("a key is checked with its provider (and a test request) before it's saved", chk > 0 && tst > chk && enc > tst);
+}
+check("the audit log records only the last 4 characters", /after: \{ last4, provider, model, keptKey \}/.test(ak) && !/after: \{[^}]*\bkey\b[,}]/.test(ak.replace(/last4|keptKey/g, "")));
 const ex = strip(readFileSync("src/app/api/export/route.ts", "utf8"));
 check("backups don't include AI keys", !/workspaceAiSettings/.test(ex));
 check("only the platform owner can block a workspace from their key, and only ones they set up",

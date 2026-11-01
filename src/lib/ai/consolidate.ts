@@ -1,4 +1,4 @@
-import { geminiJson } from "./gemini";
+import { aiJson } from "./client";
 
 /**
  * Proposes which themes describe the same underlying problem.
@@ -98,6 +98,6 @@ export function validateProposals(raw: unknown, themes: ThemeForReview[]): Merge
 
 export async function proposeThemeMerges(themes: ThemeForReview[]): Promise<MergeProposal[]> {
   if (themes.length < 2) return [];
-  const raw = await geminiJson(buildPrompt(themes));
+  const raw = await aiJson(buildPrompt(themes));
   return validateProposals(raw, themes);
 }

@@ -136,6 +136,8 @@ export const workspaceAiSettings = pgTable("workspace_ai_settings", {
     .primaryKey()
     .references(() => workspaces.id, { onDelete: "cascade" }),
   provider: text("provider").notNull().default("gemini"),
+  /** The provider's model to use; null = that provider's recommended default. */
+  model: text("model"),
   encryptedKey: text("encrypted_key"),
   keyLast4: text("key_last4"),
   allowPlatformKey: boolean("allow_platform_key").notNull().default(true),

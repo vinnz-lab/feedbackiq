@@ -94,6 +94,14 @@ async function main() {
   const after5 = await one(`SELECT (SELECT count(*) FROM feedback_items) items, (SELECT count(*) FROM themes) themes, (SELECT count(*) FROM users) users`);
   check("0005 changes no existing data", JSON.stringify(after5) === JSON.stringify(after));
 
+  // 3f. 0006: AI model per workspace.
+  await run("drizzle/0006_ai_model.sql");
+  await run("drizzle/0006_ai_model.sql"); // safe to run twice
+  const col = await one(`SELECT data_type FROM information_schema.columns WHERE table_name='workspace_ai_settings' AND column_name='model'`);
+  check("0006 adds the model column (and can be run twice)", col[0]?.data_type === "text");
+  const after6 = await one(`SELECT (SELECT count(*) FROM feedback_items) items, (SELECT count(*) FROM themes) themes, (SELECT count(*) FROM users) users`);
+  check("0006 changes no existing data", JSON.stringify(after6) === JSON.stringify(after));
+
   // 4. The OLD app code still works on the new database (the window between
   //    running the SQL and the new code going live).
   const oldStyle = await one(`SELECT id FROM workspaces LIMIT 1`);

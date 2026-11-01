@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { decryptSecret } from "@/lib/secret-box";
 import type { AiKey } from "./ai-context";
+import { cleanModel, isProvider, PROVIDERS, type ProviderId } from "./providers";
 
 /** Shown to the user when a workspace has no key it's allowed to use. */
 export class NoAiKeyError extends Error {
@@ -15,10 +16,21 @@ export type AiKeyStatus = {
   /** What AI calls in this workspace will actually use. */
   using: "workspace" | "platform" | "none";
   hasOwnKey: boolean;
+  /** The provider and model AI in this workspace will use. */
+  provider: ProviderId;
+  model: string;
   last4: string | null;
   allowPlatformKey: boolean;
   updatedAt: Date | null;
 };
+
+const platformModel = () => process.env.GEMINI_MODEL || PROVIDERS.gemini.defaultModel;
+
+/** A saved row's provider and model, falling back to safe defaults. */
+function providerAndModel(row: { provider: string | null; model: string | null }): { provider: ProviderId; model: string } {
+  const provider = isProvider(row.provider) ? row.provider : "gemini";
+  return { provider, model: cleanModel(row.model) ?? PROVIDERS[provider].defaultModel };
+}
 
 export async function getAiKeyStatus(workspaceId: string): Promise<AiKeyStatus> {
   const db = await getDb();
@@ -29,9 +41,12 @@ export async function getAiKeyStatus(workspaceId: string): Promise<AiKeyStatus> 
     .limit(1);
   const hasOwnKey = Boolean(row?.encryptedKey);
   const allowPlatformKey = row?.allowPlatformKey ?? true;
+  const own = hasOwnKey ? providerAndModel(row) : null;
   return {
     using: hasOwnKey ? "workspace" : allowPlatformKey ? "platform" : "none",
     hasOwnKey,
+    provider: own?.provider ?? "gemini",
+    model: own?.model ?? platformModel(),
     last4: row?.keyLast4 ?? null,
     allowPlatformKey,
     updatedAt: row?.updatedAt ?? null,
@@ -59,7 +74,7 @@ export async function resolveAiKey(workspaceId: string): Promise<AiKey> {
 
   if (row?.encryptedKey) {
     try {
-      return { key: decryptSecret(row.encryptedKey), source: "workspace" };
+      return { key: decryptSecret(row.encryptedKey), source: "workspace", ...providerAndModel(row) };
     } catch {
       throw new NoAiKeyError(
         "This workspace's saved AI key can't be read. Its owner should add the key again in Integrations → AI.",
@@ -73,5 +88,5 @@ export async function resolveAiKey(workspaceId: string): Promise<AiKey> {
   }
   const platform = process.env.GEMINI_API_KEY;
   if (!platform) throw new NoAiKeyError("No AI key is configured for this app yet.");
-  return { key: platform, source: "platform" };
+  return { key: platform, source: "platform", provider: "gemini", model: platformModel() };
 }

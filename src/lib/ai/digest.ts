@@ -1,4 +1,4 @@
-import { geminiJson } from "./gemini";
+import { aiJson } from "./client";
 
 export type DigestAi = {
   headline: string;
@@ -14,7 +14,7 @@ Use sections like "Top themes", "Emerging & movers", "What to prioritise next". 
 DATA:
 ${dataBlock}`;
 
-  const r = (await geminiJson(prompt)) as Partial<DigestAi>;
+  const r = (await aiJson(prompt)) as Partial<DigestAi>;
   return {
     headline: typeof r.headline === "string" ? r.headline : "Weekly feedback digest",
     summary: typeof r.summary === "string" ? r.summary : "",

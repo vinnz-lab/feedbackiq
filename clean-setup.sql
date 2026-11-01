@@ -211,6 +211,7 @@ CREATE INDEX "members_user_idx" ON "workspace_members" USING btree ("user_id");;
 CREATE TABLE "workspace_ai_settings" (
 	"workspace_id" uuid PRIMARY KEY NOT NULL,
 	"provider" text DEFAULT 'gemini' NOT NULL,
+	"model" text,
 	"encrypted_key" text,
 	"key_last4" text,
 	"allow_platform_key" boolean DEFAULT true NOT NULL,

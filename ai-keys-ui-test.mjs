@@ -34,7 +34,7 @@ console.log("Your own workspace:");
 const jamie = await session("Jamie Lee");
 await jamie.page.goto(base + "/integrations", { waitUntil: "networkidle" });
 check(/Using the platform's AI key/.test(await aiSection(jamie.page).innerText()), "starts on the platform key");
-await jamie.page.getByLabel("Gemini API key").fill("AIzaSyFAKE-not-a-real-key-000000000000");
+await jamie.page.getByLabel("AI API key").fill("AIzaSyFAKE-not-a-real-key-000000000000");
 await jamie.page.getByRole("button", { name: "Check and save" }).click();
 await jamie.page.waitForTimeout(5000);
 const after = await aiSection(jamie.page).innerText();
@@ -47,7 +47,7 @@ console.log("\nA contributor:");
 const tom = await session("Tom Becker");
 await tom.page.goto(base + "/integrations", { waitUntil: "networkidle" });
 const ts = await aiSection(tom.page).innerText();
-check(/Using the platform's AI key/.test(ts) && /Only the workspace owner can change/.test(ts) && (await tom.page.getByLabel("Gemini API key").count()) === 0, "sees which key is used, can't change it");
+check(/Using the platform's AI key/.test(ts) && /Only the workspace owner can change/.test(ts) && (await tom.page.getByLabel("AI API key").count()) === 0, "sees which key is used, can't change it");
 
 console.log("\nA tester who must bring their own key:");
 await jamie.page.goto(base + "/settings", { waitUntil: "networkidle" });
@@ -65,7 +65,7 @@ check((await toggle.count()) === 1 && !(await toggle.isChecked()), "in your list
 const priya = await session("Priya Patel");
 await priya.page.goto(base + "/integrations", { waitUntil: "networkidle" });
 check(/No AI key — AI features are off/.test(await aiSection(priya.page).innerText()), "she's told AI is off until she adds a key");
-check((await priya.page.getByLabel("Gemini API key").count()) === 1, "and, as owner, she can add one");
+check((await priya.page.getByLabel("AI API key").count()) === 1, "and, as owner, she can add one");
 await fetch(base + "/api/ingest", { method: "POST", headers: { "Content-Type": "application/json", Cookie: await priya.cookie() }, body: JSON.stringify({ paste: "PRIYA feedback about exports being slow " + Date.now() }) });
 let t = await runAi(priya);
 check(/needs its own AI key/.test(t) && !/Nothing to analyse/.test(t), "running AI analysis tells her to add her own key (your key is NOT used)", t.match(/⚠.*$/m)?.[0]);
