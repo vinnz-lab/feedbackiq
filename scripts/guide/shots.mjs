@@ -53,6 +53,17 @@ await shot(alex, "09-digest", { x: 240, y: 64, width: 1200, height: 800 });
 await go(alex, "/integrations");
 await shot(alex, "10-integrations", { x: 240, y: 64, width: 1200, height: 820 });
 
+// Audio briefings, with the script open.
+await go(alex, "/briefings");
+await alex.getByText("Read the script").first().click();
+await alex.waitForTimeout(300);
+await shot(alex, "14-briefings", { x: 240, y: 64, width: 1200, height: 836 });
+await alex.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+await alex.waitForTimeout(300);
+await alex.getByTestId("briefing").first().screenshot({ path: `${out}/15-briefing-item.jpg`, type: "jpeg", quality: 82 });
+await go(alex, "/privacy");
+await shot(alex, "16-privacy", { x: 0, y: 0, width: 1440, height: 760 });
+
 // Share link + the page it opens.
 await go(alex, "/roadmap");
 await alex.getByRole("button", { name: /🔗 Share/ }).click();

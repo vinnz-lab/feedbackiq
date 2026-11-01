@@ -10,6 +10,7 @@ const outPdf = process.env.OUT_PDF || "public/insight-hub-guide.pdf";
 const icon = readFileSync("src/app/icon.svg", "utf8");
 const img = (n) => `data:image/jpeg;base64,${readFileSync(`${shots}/${n}.jpg`).toString("base64")}`;
 const hub = `<svg viewBox="0 0 64 64" width="38" height="38">${[...Array(6)].map((_, i) => { const a = ((-90 + 60 * i) * Math.PI) / 180; return `<line x1="32" y1="32" x2="${32 + 22 * Math.cos(a)}" y2="${32 + 22 * Math.sin(a)}" stroke="#4F46E5" stroke-width="3"/><circle cx="${32 + 24 * Math.cos(a)}" cy="${32 + 24 * Math.sin(a)}" r="5.5" fill="#4F46E5"/>`; }).join("")}<circle cx="32" cy="32" r="14" fill="#4F46E5"/><path d="M22.5 32c2.6-4.4 5.8-6.4 9.5-6.4s6.9 2 9.5 6.4c-2.6 4.4-5.8 6.4-9.5 6.4s-6.9-2-9.5-6.4z" fill="#fff"/><circle cx="32" cy="32" r="3.6" fill="#8B5CF6"/></svg>`;
+const SITE = process.env.SITE || "insight-hub-vinnzlab.vercel.app";
 const today = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
 
 /** A screenshot; with h (mm) it's cropped from the top to that height so pages never overflow. */
@@ -61,17 +62,19 @@ ul { margin: 1mm 0 2.5mm 5mm; padding: 0; } li { margin-bottom: 1mm; }
   <h1>Every customer voice.<br/>One clear roadmap.</h1>
   <p style="font-size:13pt;color:#4B5563;margin-top:6mm;max-width:150mm">Insight Hub collects customer feedback from wherever it lives — surveys, emails, call transcripts, support tools — and uses AI to turn it into clear themes, a prioritised roadmap and a one-page digest your whole team can act on.</p>
   <div class="flow" style="margin-top:12mm">
-    <div><b>📥</b>Collect</div><div><b>✨</b>Analyse</div><div><b>✓</b>Review</div><div><b>🏷️</b>Themes</div><div><b>🗺️</b>Roadmap</div><div><b>📰</b>Share</div>
+    <div><b>📥</b>Collect</div><div><b>✨</b>Analyse</div><div><b>✓</b>Review</div><div><b>🏷️</b>Themes</div><div><b>🗺️</b>Roadmap</div><div><b>🎧</b>Listen</div><div><b>📰</b>Share</div>
   </div>
   <div class="card" style="margin-top:8mm">
     <h3>What's inside</h3>
     <div class="grid2" style="gap:2mm 8mm;font-size:10pt">
-      <div>1. What Insight Hub does</div><div>5. Sharing your results</div>
-      <div>2. Your first ten minutes</div><div>6. Bringing feedback in automatically</div>
-      <div>3. The six steps, with screenshots</div><div>7. Who can do what</div>
-      <div>4. Finding anything with search</div><div>8. Questions people ask</div>
+      <div>1. What Insight Hub does</div><div>6. Sharing your results</div>
+      <div>2. Your first ten minutes</div><div>7. Bringing feedback in automatically</div>
+      <div>3. The six steps, with screenshots</div><div>8. Who can do what</div>
+      <div>4. Listen on the go: audio briefings</div><div>9. Privacy and questions people ask</div>
+      <div>5. Finding anything with search</div><div></div>
     </div>
   </div>
+  <p style="position:absolute;bottom:26mm;font-size:11pt"><b>Try it:</b> <span style="color:#4F46E5;font-weight:700">${SITE}</span></p>
   <p class="muted" style="position:absolute;bottom:18mm;font-size:9pt">Screenshots show a demo workspace with sample data for a made-up project-management app. · ${today}</p>
 </section>
 
@@ -84,6 +87,7 @@ ul { margin: 1mm 0 2.5mm 5mm; padding: 0; } li { margin-bottom: 1mm; }
     <li><b>Groups similar feedback into themes</b>, so “the board takes forever” and “filtering freezes” become one clear problem with the evidence behind it.</li>
     <li><b>Scores a roadmap</b> by customer demand, benefit and effort — so priorities are backed by evidence, not opinion.</li>
     <li><b>Writes a weekly digest</b> for people who won't read every item, ready to post to Slack or Teams or share by link.</li>
+    <li><b>Talks you through it</b> — a podcast-style audio briefing where two AI hosts discuss the feedback behind the themes you pick.</li>
   </ul>
   <div class="tip">Nothing counts until a person approves it. The AI suggests; your team decides. Every theme and roadmap item links back to the exact quotes it came from.</div>
   ${shot("03-dashboard", "The dashboard: headline numbers and the top themes, with trend and sentiment at a glance.")}
@@ -126,7 +130,21 @@ ul { margin: 1mm 0 2.5mm 5mm; padding: 0; } li { margin-bottom: 1mm; }
 </section>
 
 <section class="page">
-  <div class="kicker">4 · Finding anything</div>
+  <div class="kicker">4 · Listen on the go</div>
+  <h2>Audio briefings: your feedback as a podcast</h2>
+  <p>No time to read every theme? Open <b>Audio briefings</b>, tick up to five themes and click <b>Create audio briefing</b>. In a minute or two, two AI hosts — Ava and Leo — talk you through what customers said, how many said it, how they feel, what's rising and what's already on the roadmap, then recap what to look at next. Listen in the app, read the script, or download the MP3 for your commute.</p>
+  <div class="grid2" style="gap:3mm 6mm;font-size:9.5pt;margin:3mm 0">
+    <div class="card"><h3>🎯 Grounded</h3><p>Only approved feedback and real numbers — it never invents quotes or figures.</p></div>
+    <div class="card"><h3>🙈 Names masked by default</h3><p>Customers are said as initials (“K. H. said…”), or names can be said or left out entirely.</p></div>
+    <div class="card"><h3>⏱️ About 4–5 minutes</h3><p>A balanced length by default; a longer “deep dive” is coming soon.</p></div>
+    <div class="card"><h3>🗑️ Kept for 30 days</h3><p>The 10 most recent briefings are kept for 30 days — download any you want to keep.</p></div>
+  </div>
+  ${shot("15-briefing-item", "A finished briefing: play it, download it, or read the script.")}
+  ${footer(7)}
+</section>
+
+<section class="page">
+  <div class="kicker">5 · Finding anything</div>
   <div class="grid2" style="align-items:start">
     <div>
       <h2>Search</h2>
@@ -135,7 +153,7 @@ ul { margin: 1mm 0 2.5mm 5mm; padding: 0; } li { margin-bottom: 1mm; }
     </div>
     ${shot("12-search", "")}
   </div>
-  <div class="kicker" style="margin-top:4mm">5 · Sharing your results</div>
+  <div class="kicker" style="margin-top:4mm">6 · Sharing your results</div>
   <div class="grid2">
     <div class="card"><h3>💬 Slack &amp; Microsoft Teams</h3><p>Connect a channel once in <b>Integrations</b>, then post the latest digest with one click from the Digest page.</p></div>
     <div class="card"><h3>🔗 Share links</h3><p>Send a read-only link to the digest or roadmap to people without an account. Turn it off any time.</p></div>
@@ -143,11 +161,11 @@ ul { margin: 1mm 0 2.5mm 5mm; padding: 0; } li { margin-bottom: 1mm; }
     <div class="card"><h3>📤 Backups</h3><p>Download everything in a workspace as one file from Settings, whenever you like.</p></div>
   </div>
   ${shot("11-shared-roadmap", "What someone sees when you share the roadmap: status and scores only — no quotes, customer names or ticket details.")}
-  ${footer(7)}
+  ${footer(8)}
 </section>
 
 <section class="page">
-  <div class="kicker">6 · Bringing feedback in automatically</div>
+  <div class="kicker">7 · Bringing feedback in automatically</div>
   <h2>Let feedback arrive on its own</h2>
   <div class="grid2" style="align-items:start">
     <div>
@@ -158,11 +176,11 @@ ul { margin: 1mm 0 2.5mm 5mm; padding: 0; } li { margin-bottom: 1mm; }
     ${shot("13-feedback", "")}
   </div>
   ${shot("10-integrations", "Integrations: everything that brings feedback in, sends work out, and powers the AI — in one place.", 110)}
-  ${footer(8)}
+  ${footer(9)}
 </section>
 
 <section class="page">
-  <div class="kicker">7 · Who can do what</div>
+  <div class="kicker">8 · Who can do what</div>
   <h2>Roles</h2>
   <table>
     <tr><th></th><th>Owner</th><th>Contributor · Executive · Engineer</th><th>Viewer</th></tr>
@@ -170,17 +188,19 @@ ul { margin: 1mm 0 2.5mm 5mm; padding: 0; } li { margin-bottom: 1mm; }
     <tr><td>Search, notifications, send feedback</td><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td></tr>
     <tr><td>Add feedback, run AI analysis, approve and correct</td><td class="y">✓</td><td class="y">✓</td><td class="n">—</td></tr>
     <tr><td>Rename and merge themes, manage the roadmap, generate digests</td><td class="y">✓</td><td class="y">✓</td><td class="n">—</td></tr>
+    <tr><td>Listen to and download audio briefings</td><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td></tr>
+    <tr><td>Create audio briefings</td><td class="y">✓</td><td class="y">✓</td><td class="n">—</td></tr>
     <tr><td>Send to Jira, post digests to Slack or Teams</td><td class="y">✓</td><td class="y">✓</td><td class="n">—</td></tr>
     <tr><td>Connect apps (AI key, Jira, webhook, Slack, Teams), create share links</td><td class="y">✓</td><td class="n">—</td><td class="n">—</td></tr>
     <tr><td>Add people, change roles, reset passwords, clear or delete the workspace</td><td class="y">✓</td><td class="n">—</td><td class="n">—</td></tr>
   </table>
-  <div class="kicker" style="margin-top:8mm">8 · Questions people ask</div>
+  <div class="kicker" style="margin-top:8mm">9 · Privacy and questions people ask</div>
   <div class="qa grid2" style="gap:0 8mm">
     <div>
       <h3>Do I need my own AI subscription?</h3>
       <p>No. Insight Hub can run on the platform's AI. If you'd rather use your own, the workspace owner can add an API key from <b>Google Gemini</b>, <b>OpenAI</b> or <b>Anthropic (Claude)</b> in Integrations → AI. Note that a ChatGPT Plus or Claude Pro subscription doesn't include API use — API keys are billed separately by the provider, usually pennies for a small team.</p>
       <h3>Is our data private?</h3>
-      <p>Each workspace is completely separate — people only see the workspaces they've been added to. Keys and connection details are stored encrypted and never shown again after saving.</p>
+      <p>Each workspace is completely separate — people only see the workspaces they've been added to. Data is stored in the EU (Stockholm), keys are encrypted, and there's no tracking. The full plain-English summary is at <b>${SITE}/privacy</b>.</p>
     </div>
     <div>
       <h3>Does the AI change anything on its own?</h3>
@@ -189,9 +209,11 @@ ul { margin: 1mm 0 2.5mm 5mm; padding: 0; } li { margin-bottom: 1mm; }
       <p>Click <b>Remove sample data</b> in the yellow banner. Everything it created goes; anything you added yourself stays.</p>
       <h3>Something's not working, or I have an idea</h3>
       <p>Click <b>💬 Feedback</b> in the top bar — it comes straight to us.</p>
+      <h3>How do I get access?</h3>
+      <p>Insight Hub is invite-only while it's being tested. Ask the person who shared this guide, then sign in at <b>${SITE}</b>.</p>
     </div>
   </div>
-  ${footer(9)}
+  ${footer(10)}
 </section>
 </body></html>`;
 
