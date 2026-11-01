@@ -1,3 +1,4 @@
+import { PrivacyLink } from "@/components/privacy-link";
 import { FullLogo } from "@/components/brand";
 import { redirect } from "next/navigation";
 import { authMode } from "@/lib/supabase/env";
@@ -25,6 +26,7 @@ export default async function ChoosePasswordPage() {
         <form action={signOut} className="mt-4 text-center">
           <button className="text-[12px] font-semibold text-muted hover:text-fg">Sign out</button>
         </form>
+        <PrivacyLink className="mt-6" />
       </div>
     </div>
   );

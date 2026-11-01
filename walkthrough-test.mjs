@@ -43,12 +43,25 @@ for (const name of users) {
 }
 console.log("\nPublic pages:");
 const ctx = await b.newContext(); const page = await ctx.newPage();
-for (const p of ["/login", "/forgot-password", "/reset-password", "/"]) {
+for (const p of ["/login", "/forgot-password", "/reset-password", "/", "/privacy"]) {
   const r = await page.goto(base + p, { waitUntil: "networkidle" });
   const body = await page.locator("body").innerText();
   check(r.status() < 400 && !BROKEN.test(body) && !/FeedbackIQ/.test(body), p, `${r.status()} ${page.url().replace(base, "")}`);
 }
-check((await page.goto(base + "/login")) && (await page.title()) === "Insight Hub", "browser tab title is Insight Hub", await page.title());
+check((await page.goto(base + "/login")) && (await page.title()).startsWith("Insight Hub"), "browser tab title starts with Insight Hub", await page.title());
+const og = async (prop) => page.locator(`meta[property="${prop}"]`).getAttribute("content").catch(() => null);
+const ogImg = await og("og:image");
+check(/opengraph-image/.test(ogImg ?? "") && /Every customer voice/.test((await og("og:description")) ?? "") && (await og("og:site_name")) === "Insight Hub", "link previews (LinkedIn etc.) get a title, description and image", ogImg);
+const imgRes = await fetch(new URL(new URL(ogImg).pathname + new URL(ogImg).search, base));
+check(imgRes.ok && imgRes.headers.get("content-type") === "image/jpeg" && (await imgRes.arrayBuffer()).byteLength > 50000, "…and the preview image loads");
+check((await page.locator('meta[name="twitter:card"]').getAttribute("content")) === "summary_large_image", "large preview card");
+await page.goto(base + "/privacy", { waitUntil: "networkidle" });
+const priv = await page.locator("body").innerText();
+check(/How AI is used/.test(priv) && /Stockholm/.test(priv) && /30 days/.test(priv) && /Feedback/.test(priv) && (await page.title()) === "Privacy · Insight Hub", "the privacy page is public, with the key sections", await page.title());
+await page.goto(base + "/login", { waitUntil: "networkidle" });
+await page.getByRole("link", { name: "Privacy" }).click();
+await page.waitForURL("**/privacy");
+check(true, "the sign-in page links to it");
 await b.close();
 console.log(fail ? `${fail} FAILED` : "all passed");
 process.exit(fail ? 1 : 0);

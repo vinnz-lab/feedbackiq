@@ -1,3 +1,4 @@
+import { PrivacyLink } from "@/components/privacy-link";
 import { FullLogo } from "@/components/brand";
 import Link from "next/link";
 import { cookies } from "next/headers";
@@ -42,6 +43,7 @@ export default async function ResetPasswordPage() {
             </p>
           </div>
         )}
+        <PrivacyLink className="mt-6" />
       </div>
     </div>
   );

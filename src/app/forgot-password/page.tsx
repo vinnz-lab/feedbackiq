@@ -1,3 +1,4 @@
+import { PrivacyLink } from "@/components/privacy-link";
 import { FullLogo } from "@/components/brand";
 import { ForgotForm } from "./forgot-form";
 
@@ -16,6 +17,7 @@ export default async function ForgotPasswordPage({
           <FullLogo />
         </div>
         <ForgotForm linkProblem={error === "link"} />
+        <PrivacyLink className="mt-6" />
       </div>
     </div>
   );

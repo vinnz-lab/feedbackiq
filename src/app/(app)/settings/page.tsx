@@ -192,6 +192,9 @@ export default async function SettingsPage() {
           counts={delCounts}
         />
       )}
+      <p className="mt-8 text-[12px] text-muted">
+        How Insight Hub handles your data: <Link href="/privacy" className="font-semibold text-indigo hover:underline">Privacy</Link>
+      </p>
     </div>
   );
 }
