@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { and, eq, desc, count } from "drizzle-orm";
+import { and, eq, desc, count, ilike, or, type SQL } from "drizzle-orm";
+import { cleanQuery, likePattern, MIN_QUERY } from "@/lib/search";
 import { currentWorkspaceId } from "@/lib/workspace";
 import { currentCan } from "@/lib/permissions";
 import { getDb, schema } from "@/db";
@@ -48,9 +49,11 @@ function Chip({ bg, fg, children }: { bg: string; fg: string; children: React.Re
 export default async function RegisterPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<{ tab?: string; q?: string }>;
 }) {
-  const { tab: rawTab } = await searchParams;
+  const { tab: rawTab, q: rawQ } = await searchParams;
+  const cq = cleanQuery(rawQ);
+  const q = cq.length >= MIN_QUERY ? cq : "";
   const info = await getWorkspaceInfo();
   const tab = rawTab === "review" || rawTab === "sources" ? rawTab : "items";
   const db = await getDb();
@@ -84,7 +87,7 @@ export default async function RegisterPage({
         {tabs.map((t) => (
           <Link
             key={t.key}
-            href={`/register?tab=${t.key}`}
+            href={`/register?tab=${t.key}${q ? `&q=${encodeURIComponent(q)}` : ""}`}
             className={`rounded-[7px] px-3.5 py-1.5 text-[12.5px] font-semibold ${
               tab === t.key ? "bg-indigo text-white" : "text-muted hover:text-fg"
             }`}
@@ -94,14 +97,46 @@ export default async function RegisterPage({
         ))}
       </div>
 
-      {tab === "items" && <ItemsTab />}
-      {tab === "review" && <ReviewTab />}
-      {tab === "sources" && <SourcesTab />}
+      {q && (
+        <div
+          data-testid="search-filter"
+          className="mb-3 flex items-center gap-3 rounded-[10px] border px-3.5 py-2.5 text-[12.5px]"
+          style={{ background: "var(--indigo-soft)", borderColor: "var(--indigo)", color: "var(--indigo)" }}
+        >
+          <span>
+            Showing only what matches <b>“{q}”</b>
+          </span>
+          <Link href={`/register?tab=${tab}`} className="ml-auto font-semibold hover:underline">
+            ✕ Clear search
+          </Link>
+        </div>
+      )}
+
+      {tab === "items" && <ItemsTab q={q} />}
+      {tab === "review" && <ReviewTab q={q} />}
+      {tab === "sources" && <SourcesTab q={q} />}
     </div>
   );
 }
 
-async function ItemsTab() {
+/** Text filter shared by the item tabs: quote, people and source name. */
+function itemMatch(q: string): SQL | undefined {
+  if (!q) return undefined;
+  const p = likePattern(q);
+  const fi = schema.feedbackItems;
+  return or(ilike(fi.quote, p), ilike(fi.customer, p), ilike(fi.submitter, p), ilike(fi.speaker, p), ilike(schema.sources.filename, p));
+}
+
+function NoMatches({ q }: { q: string }) {
+  return (
+    <div className="rounded-[var(--radius-card)] border border-border bg-surface p-11 text-center shadow-[var(--shadow)]">
+      <div className="text-[16px] font-semibold">Nothing here matches “{q}”</div>
+      <p className="mx-auto mt-1 max-w-md text-[13px] text-muted">Try another tab, fewer words, or a different spelling.</p>
+    </div>
+  );
+}
+
+async function ItemsTab({ q }: { q: string }) {
   const wsId = await currentWorkspaceId();
   const canEdit = await currentCan("edit");
   const db = await getDb();
@@ -125,9 +160,10 @@ async function ItemsTab() {
     .from(fi)
     .leftJoin(schema.sources, eq(fi.sourceId, schema.sources.id))
     .leftJoin(schema.themes, eq(fi.themeId, schema.themes.id))
-    .where(and(eq(fi.workspaceId, wsId), eq(fi.reviewStatus, "approved")))
+    .where(and(eq(fi.workspaceId, wsId), eq(fi.reviewStatus, "approved"), itemMatch(q)))
     .orderBy(desc(fi.createdAt));
 
+  if (q && rows.length === 0) return <NoMatches q={q} />;
   const unanalysed = rows.filter((r) => !r.type).length;
 
   return (
@@ -176,7 +212,7 @@ async function ItemsTab() {
   );
 }
 
-async function ReviewTab() {
+async function ReviewTab({ q }: { q: string }) {
   const wsId = await currentWorkspaceId();
   const canEdit = await currentCan("edit");
   const db = await getDb();
@@ -201,9 +237,10 @@ async function ReviewTab() {
     .from(fi)
     .leftJoin(schema.sources, eq(fi.sourceId, schema.sources.id))
     .leftJoin(schema.themes, eq(fi.themeId, schema.themes.id))
-    .where(and(eq(fi.workspaceId, wsId), eq(fi.reviewStatus, "needs_review")))
+    .where(and(eq(fi.workspaceId, wsId), eq(fi.reviewStatus, "needs_review"), itemMatch(q)))
     .orderBy(desc(fi.createdAt));
 
+  if (q && rows.length === 0) return <NoMatches q={q} />;
   const themeList = await db
     .select({ id: schema.themes.id, title: schema.themes.title })
     .from(schema.themes)
@@ -242,14 +279,15 @@ async function ReviewTab() {
   return <ReviewQueue items={items} themes={themeList} unclassified={unclassified} readOnly={!canEdit} />;
 }
 
-async function SourcesTab() {
+async function SourcesTab({ q }: { q: string }) {
   const wsId = await currentWorkspaceId();
   const db = await getDb();
   const rows = await db
     .select()
     .from(schema.sources)
-    .where(eq(schema.sources.workspaceId, wsId))
+    .where(and(eq(schema.sources.workspaceId, wsId), q ? or(ilike(schema.sources.filename, likePattern(q)), ilike(schema.sources.note, likePattern(q))) : undefined))
     .orderBy(desc(schema.sources.createdAt));
+  if (q && rows.length === 0) return <NoMatches q={q} />;
   // Only rows with a real transcription job behind them are worth polling —
   // seeded demo rows sit on "processing" with no job id.
   const pendingTranscriptions = rows.filter(
