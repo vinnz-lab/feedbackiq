@@ -1,4 +1,4 @@
-import { geminiJson } from "./gemini";
+import { aiJson } from "./client";
 import type { FeedbackTypeT, SentimentT, PriorityT, ConfidenceT } from "@/db/schema";
 
 /**
@@ -134,7 +134,7 @@ export async function extractFeedbackItems(
   const seen = new Set<string>();
 
   for (const chunk of chunks) {
-    const raw = await geminiJson(buildPrompt(chunk, themeTitles, areas));
+    const raw = await aiJson(buildPrompt(chunk, themeTitles, areas));
     for (const item of normaliseItems(raw)) {
       const key = item.quote.toLowerCase().replace(/\s+/g, " ").slice(0, 120);
       if (seen.has(key)) continue;

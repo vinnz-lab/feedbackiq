@@ -56,7 +56,7 @@ check((await count(v, "button", /Generate/)) === 0, "no Generate digest button")
 const set = await go(v, "/settings");
 check(/Your account/.test(set) && (await count(v, "button", "Add person")) === 0 && !/Clear the register|Delete this workspace/.test(set), "Settings: own account only — no adding people, clearing or deleting");
 await go(v, "/integrations");
-check((await v.getByLabel("Gemini API key").count()) === 0 && (await v.getByLabel("Jira API token").count()) === 0, "Integrations: no AI key or Jira settings to change");
+check((await v.getByLabel("AI API key").count()) === 0 && (await v.getByLabel("Jira API token").count()) === 0, "Integrations: no AI key or Jira settings to change");
 check((await count(v, "button", /Create webhook address|Get a new address|Switch (off|on)/)) === 0, "Integrations: can't create or change the webhook");
 
 console.log("\nGoing round the screen doesn't work either:");

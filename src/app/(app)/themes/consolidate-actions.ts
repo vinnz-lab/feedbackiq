@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { and, count, eq } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { proposeThemeMerges, type MergeProposal } from "@/lib/ai/consolidate";
-import { GeminiRateLimitError } from "@/lib/ai/gemini";
+import { AiRateLimitError as GeminiRateLimitError } from "@/lib/ai/client";
 import { mergeThemes } from "@/lib/themes/merge";
 import { guardAiRun } from "@/lib/guard";
 import { requireCapability } from "@/lib/permissions";

@@ -9,7 +9,7 @@ import { classifyItem } from "@/lib/ai/classify";
 import { extractFeedbackItems, SPLIT_THRESHOLD_CHARS } from "@/lib/ai/extract";
 import { quoteKey } from "@/lib/ingest/fingerprint";
 import { findSimilarTitle } from "@/lib/themes/similarity";
-import { currentIntervalMs, GeminiRateLimitError } from "@/lib/ai/gemini";
+import { currentIntervalMs, AiRateLimitError as GeminiRateLimitError } from "@/lib/ai/client";
 import { guardAiRun, logAudit } from "@/lib/guard";
 import { requireCapability } from "@/lib/permissions";
 
@@ -270,7 +270,7 @@ async function runAiAnalysisInner(itemIds?: string[]): Promise<AiRunResult> {
           rateLimited = true;
           throttleAdvice = e.advice;
           consecutiveThrottles++;
-          if (consecutiveThrottles >= 2) break;
+          if (consecutiveThrottles >= 2 || e.scope === "credit" || e.scope === "day") break;
         } else {
           failed++;
           if (!firstError) firstError = (e as Error).message;
@@ -326,7 +326,7 @@ async function runAiAnalysisInner(itemIds?: string[]): Promise<AiRunResult> {
           .where(and(eq(schema.feedbackItems.workspaceId, ws.id), eq(schema.feedbackItems.id, it.id)));
         processed++;
         consecutiveThrottles = 0;
-        // Pacing + retry are handled centrally in lib/ai/gemini.ts.
+        // Pacing + retry are handled centrally in lib/ai/client.ts.
       } catch (e) {
         if (e instanceof GeminiRateLimitError) {
           // Being throttled isn't a failure of THIS item — the allowance simply
@@ -336,7 +336,7 @@ async function runAiAnalysisInner(itemIds?: string[]): Promise<AiRunResult> {
           rateLimited = true;
           throttleAdvice = e.advice;
           consecutiveThrottles++;
-          if (consecutiveThrottles >= 2) {
+          if (consecutiveThrottles >= 2 || e.scope === "credit" || e.scope === "day") {
             // Circuit breaker. The whole batch shares one quota, so once it's
             // exhausted, continuing just burns the time budget on retries that
             // cannot succeed and hammers a limit we already hit.
@@ -365,7 +365,7 @@ async function runAiAnalysisInner(itemIds?: string[]): Promise<AiRunResult> {
     let error: string | undefined;
     if (rateLimited) {
       error =
-        "hit the Gemini rate limit. Wait about a minute, then run again to continue.";
+        "hit the AI provider's rate limit. Wait about a minute, then run again to continue.";
     } else if (failed > 0) {
       error = firstError;
     }

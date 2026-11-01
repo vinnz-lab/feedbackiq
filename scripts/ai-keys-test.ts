@@ -35,21 +35,21 @@ async function main() {
     seen.push({ key: (init.headers as Record<string, string>)["x-goog-api-key"] ?? null, url: String(url), at: Date.now() });
     return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: "{\"ok\":true}" }] } }] }), { status: 200 });
   }) as typeof fetch;
-  await withAiKey({ key: "CLIENT-A", source: "workspace" }, () => geminiJson("x"));
+  await withAiKey({ key: "CLIENT-A", source: "workspace", provider: "gemini", model: "gemini-3.1-flash-lite" }, () => geminiJson("x"));
   check("inside a workspace's AI action, its own key is sent", seen[0].key === "CLIENT-A");
   check("…in a header, not the URL", !seen[0].url.includes("CLIENT-A") && !seen[0].url.includes("key="));
-  await withAiKey({ key: "PLATFORM-KEY", source: "platform" }, () => geminiJson("x"));
+  await withAiKey({ key: "PLATFORM-KEY", source: "platform", provider: "gemini", model: "gemini-3.1-flash-lite" }, () => geminiJson("x"));
   check("a platform-key workspace sends the platform key", seen[1].key === "PLATFORM-KEY");
   // Nested calls deep inside the action see the same key.
-  await withAiKey({ key: "CLIENT-B", source: "workspace" }, async () => { await Promise.resolve(); await new Promise((r) => setTimeout(r, 5)); return geminiJson("deep"); });
+  await withAiKey({ key: "CLIENT-B", source: "workspace", provider: "gemini", model: "gemini-3.1-flash-lite" }, async () => { await Promise.resolve(); await new Promise((r) => setTimeout(r, 5)); return geminiJson("deep"); });
   check("calls deep inside an action (after awaits/timers) still use that action's key", seen[2].key === "CLIENT-B");
 
   console.log("\nPacing is per key:");
   seen.length = 0;
   const t0 = Date.now();
   await Promise.all([
-    withAiKey({ key: "SLOW-A", source: "workspace" }, async () => { await geminiJson("a1"); await geminiJson("a2"); }),
-    withAiKey({ key: "FAST-B", source: "workspace" }, () => geminiJson("b1")),
+    withAiKey({ key: "SLOW-A", source: "workspace", provider: "gemini", model: "gemini-3.1-flash-lite" }, async () => { await geminiJson("a1"); await geminiJson("a2"); }),
+    withAiKey({ key: "FAST-B", source: "workspace", provider: "gemini", model: "gemini-3.1-flash-lite" }, () => geminiJson("b1")),
   ]);
   const b = seen.find((s) => s.key === "FAST-B")!;
   const a2 = seen.filter((s) => s.key === "SLOW-A")[1];

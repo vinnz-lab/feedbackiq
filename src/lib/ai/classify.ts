@@ -1,4 +1,4 @@
-import { geminiJson } from "./gemini";
+import { aiJson } from "./client";
 import type { FeedbackTypeT, SentimentT, PriorityT, ConfidenceT } from "@/db/schema";
 
 export type Classification = {
@@ -31,7 +31,7 @@ Known product areas for context: ${areas.join(", ") || "(none)"}.
 
 Feedback: """${quote.slice(0, 2000)}"""`;
 
-  const r = await geminiJson(prompt);
+  const r = await aiJson(prompt);
   const pick = (v: unknown, allowed: string[], def: string) =>
     typeof v === "string" && allowed.includes(v) ? v : def;
 

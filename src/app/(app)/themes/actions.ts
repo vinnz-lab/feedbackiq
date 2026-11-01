@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { and, eq } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { summarizeTheme } from "@/lib/ai/summarize";
-import { currentIntervalMs, GeminiRateLimitError } from "@/lib/ai/gemini";
+import { currentIntervalMs, AiRateLimitError as GeminiRateLimitError } from "@/lib/ai/client";
 import { guardAiRun } from "@/lib/guard";
 import { requireCapability } from "@/lib/permissions";
 
@@ -64,7 +64,7 @@ async function regenerateSummariesInner(): Promise<{
           updated++;
         }
         consecutiveThrottles = 0;
-        // Pacing + retry are handled centrally in lib/ai/gemini.ts.
+        // Pacing + retry are handled centrally in lib/ai/client.ts.
       } catch (e) {
         if (e instanceof GeminiRateLimitError) {
           // Same circuit breaker as the classify run: once the shared quota is
@@ -72,7 +72,7 @@ async function regenerateSummariesInner(): Promise<{
           rateLimited = true;
           throttleAdvice = e.advice;
           consecutiveThrottles++;
-          if (consecutiveThrottles >= 2) break;
+          if (consecutiveThrottles >= 2 || e.scope === "credit" || e.scope === "day") break;
         } else {
           failed++;
           if (!firstError) firstError = (e as Error).message;
@@ -85,7 +85,7 @@ async function regenerateSummariesInner(): Promise<{
 
     let error: string | undefined;
     if (rateLimited) {
-      error = "hit the Gemini rate limit. Wait about a minute, then run again.";
+      error = "hit the AI provider's rate limit. Wait about a minute, then run again.";
     } else if (failed > 0) {
       error = firstError;
     } else if (skipped > 0) {
