@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { desc, eq } from "drizzle-orm";
 import { requireWorkspace } from "@/lib/workspace";
+import { can } from "@/lib/permissions";
 import { getJiraConnection, isConnected } from "@/lib/jira-workspace";
 import { JiraCell, RefreshFromJiraButton } from "@/components/jira-cell";
 import { getDb, schema } from "@/db";
@@ -30,7 +31,8 @@ export default async function RoadmapPage({
   const view = rawView === "board" ? "board" : "backlog";
   const ctx = await requireWorkspace();
   const wsId = ctx.workspace.id;
-  const isOwner = ctx.role === "owner";
+  const canEdit = can(ctx.role, "edit");
+  const canJira = can(ctx.role, "jira");
   const jiraConnected = isConnected(await getJiraConnection(wsId));
   const db = await getDb();
 
@@ -68,12 +70,12 @@ export default async function RoadmapPage({
             Prioritised from approved feedback · score = demand + benefit − effort
           </p>
         </div>
-        {isOwner && jiraConnected && enh.some((e) => e.jiraKey) && (
+        {canJira && jiraConnected && enh.some((e) => e.jiraKey) && (
           <div className="ml-auto">
             <RefreshFromJiraButton />
           </div>
         )}
-        <div className={`${isOwner && jiraConnected && enh.some((e) => e.jiraKey) ? "" : "ml-auto "}inline-flex gap-1 rounded-[10px] border border-border bg-surface p-1`}>
+        <div className={`${canJira && jiraConnected && enh.some((e) => e.jiraKey) ? "" : "ml-auto "}inline-flex gap-1 rounded-[10px] border border-border bg-surface p-1`}>
           {(["backlog", "board"] as const).map((v) => (
             <Link
               key={v}
@@ -89,7 +91,7 @@ export default async function RoadmapPage({
       </div>
 
       {view === "board" ? (
-        <RoadmapBoard enh={enh as EnhCard[]} />
+        <RoadmapBoard enh={enh as EnhCard[]} readOnly={!canEdit} />
       ) : (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.5fr_1fr]">
           <div className="overflow-hidden rounded-[var(--radius-card)] border border-border bg-surface shadow-[var(--shadow)]">
@@ -128,7 +130,7 @@ export default async function RoadmapPage({
                             jiraKey={e.jiraKey}
                             jiraUrl={e.jiraUrl}
                             jiraStatus={e.jiraStatus}
-                            canSend={isOwner && jiraConnected}
+                            canSend={canJira && jiraConnected}
                           />
                         </div>
                       </td>
@@ -139,7 +141,11 @@ export default async function RoadmapPage({
                       </td>
                       <td className="px-3 py-2.5"><b>{e.demand}</b></td>
                       <td colSpan={2} className="px-3 py-2.5">
-                        <ScoreEditor id={e.id} benefit={e.benefitRaw} effort={e.effortRaw} />
+                        {canEdit ? (
+                          <ScoreEditor id={e.id} benefit={e.benefitRaw} effort={e.effortRaw} />
+                        ) : (
+                          <span className="text-[12px] text-muted">Benefit <b className="text-fg">{e.benefitRaw}</b> · Effort <b className="text-fg">{e.effortRaw}</b></span>
+                        )}
                       </td>
                       <td className="px-3 py-2.5">
                         <span className="whitespace-nowrap rounded-[var(--radius-pill)] px-2 py-0.5 text-[11.5px] font-semibold" style={{ background: st.bg, color: st.fg }}>

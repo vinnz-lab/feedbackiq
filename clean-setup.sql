@@ -11,7 +11,7 @@ CREATE TYPE "public"."enhancement_status" AS ENUM('review', 'planned', 'progress
 CREATE TYPE "public"."feedback_type" AS ENUM('Feature', 'Bug', 'UX', 'Question', 'Praise');--> statement-breakpoint
 CREATE TYPE "public"."priority" AS ENUM('High', 'Medium', 'Low');--> statement-breakpoint
 CREATE TYPE "public"."review_status" AS ENUM('needs_review', 'approved', 'discarded');--> statement-breakpoint
-CREATE TYPE "public"."role" AS ENUM('owner', 'contributor', 'executive', 'engineer');--> statement-breakpoint
+CREATE TYPE "public"."role" AS ENUM('owner', 'contributor', 'executive', 'engineer', 'viewer');--> statement-breakpoint
 CREATE TYPE "public"."sentiment" AS ENUM('Positive', 'Neutral', 'Negative');--> statement-breakpoint
 CREATE TYPE "public"."source_kind" AS ENUM('email', 'recording', 'transcript', 'spreadsheet', 'note', 'paste');--> statement-breakpoint
 CREATE TYPE "public"."source_status" AS ENUM('queued', 'processing', 'processed', 'failed');--> statement-breakpoint

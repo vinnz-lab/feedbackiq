@@ -64,12 +64,14 @@ export function ReviewCard({
   item,
   themes,
   selectable = false,
+  readOnly = false,
   selected = false,
   onToggle,
 }: {
   item: ReviewItem;
   themes: { id: string; title: string }[];
   selectable?: boolean;
+  readOnly?: boolean;
   selected?: boolean;
   /** Receives whether shift was held, so a range can be selected. */
   onToggle?: (shiftKey: boolean) => void;
@@ -187,6 +189,7 @@ export function ReviewCard({
       )}
 
       {notice && <p className="mt-2 text-[12px] font-medium text-amber">⚠ {notice}</p>}
+      {!readOnly && (
       <div className="mt-3 flex flex-wrap items-center gap-2">
         {!editing ? (
           <>
@@ -244,6 +247,7 @@ export function ReviewCard({
           </>
         )}
       </div>
+      )}
     </div>
   );
 }

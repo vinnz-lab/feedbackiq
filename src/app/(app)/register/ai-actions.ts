@@ -11,7 +11,7 @@ import { quoteKey } from "@/lib/ingest/fingerprint";
 import { findSimilarTitle } from "@/lib/themes/similarity";
 import { currentIntervalMs, GeminiRateLimitError } from "@/lib/ai/gemini";
 import { guardAiRun, logAudit } from "@/lib/guard";
-import { requireWorkspace } from "@/lib/workspace";
+import { requireCapability } from "@/lib/permissions";
 
 /** Vercel caps a function at 300s (Hobby cannot raise it), so stop well short
  *  and report what's left rather than being killed mid-run. */
@@ -52,7 +52,7 @@ export type AiRunResult = {
 async function runAiAnalysisInner(itemIds?: string[]): Promise<AiRunResult> {
   const started = Date.now();
   try {
-    const ctx = await requireWorkspace();
+    const ctx = await requireCapability("edit");
     const user = ctx.user;
     const ws = ctx.workspace;
     const db = await getDb();

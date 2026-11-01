@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { and, eq, count } from "drizzle-orm";
 import { currentWorkspaceId } from "@/lib/workspace";
+import { currentCan } from "@/lib/permissions";
 import { getDb, schema } from "@/db";
 import { getWorkspaceInfo } from "@/lib/workspace-info";
 import { getCurrentUser } from "@/lib/auth";
@@ -28,6 +29,7 @@ export default async function DashboardPage() {
   const me = await getCurrentUser();
   const firstName = (me?.name ?? "").split(" ")[0] || "there";
   const wsId = await currentWorkspaceId();
+  const canEdit = await currentCan("edit");
   const db = await getDb();
   const fi = schema.feedbackItems;
 
@@ -90,7 +92,7 @@ export default async function DashboardPage() {
           href="/digest"
           className="ml-auto rounded-[var(--radius-btn)] bg-indigo px-4 py-2 text-[13px] font-semibold text-white transition hover:brightness-110"
         >
-          ✨ Generate Digest
+          {canEdit ? "✨ Generate Digest" : "View digest"}
         </Link>
       </div>
 

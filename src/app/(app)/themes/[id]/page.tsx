@@ -19,6 +19,7 @@ import { PromoteButton } from "@/components/promote-button";
 import { ThemeTitleEditor } from "@/components/theme-title-editor";
 import { loadEmerging, loadTrends } from "@/lib/trend-data";
 import { currentWorkspaceId } from "@/lib/workspace";
+import { currentCan } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +34,7 @@ export default async function ThemeDetailPage({
 }) {
   const { id } = await params;
   const wsId = await currentWorkspaceId();
+  const canEdit = await currentCan("edit");
   const db = await getDb();
   const fi = schema.feedbackItems;
 
@@ -96,13 +98,17 @@ export default async function ThemeDetailPage({
       </Link>
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <ThemeTitleEditor themeId={id} title={theme.title} />
+        {canEdit ? (
+          <ThemeTitleEditor themeId={id} title={theme.title} />
+        ) : (
+          <h1 className="text-[26px] font-bold tracking-tight">{theme.title}</h1>
+        )}
         <TrendChip trend={(await loadTrends(wsId)).get(id)} />
         {(await loadEmerging(wsId)).has(id) && (
           <span className="rounded-[4px] bg-rose px-1.5 py-0.5 text-[9.5px] font-extrabold tracking-wide text-white">EMERGING</span>
         )}
         <div className="ml-auto">
-          <PromoteButton themeId={id} />
+          {canEdit && <PromoteButton themeId={id} />}
         </div>
       </div>
 

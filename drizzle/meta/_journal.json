@@ -29,6 +29,13 @@
       "when": 1793494971779,
       "tag": "0003_jira_integration",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793497185839,
+      "tag": "0004_viewer_role",
+      "breakpoints": true
     }
   ]
 }

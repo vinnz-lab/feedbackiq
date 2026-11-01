@@ -1,5 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { currentWorkspaceId } from "@/lib/workspace";
+import { currentCan } from "@/lib/permissions";
 import { getDb, schema } from "@/db";
 import { ThemeCard, type ThemeAgg } from "@/components/theme-card";
 import { RegenerateSummariesButton } from "@/components/regenerate-summaries-button";
@@ -15,6 +16,7 @@ export const maxDuration = 300;
 
 export default async function ThemesPage() {
   const wsId = await currentWorkspaceId();
+  const canEdit = await currentCan("edit");
   const db = await getDb();
   const fi = schema.feedbackItems;
 
@@ -65,12 +67,12 @@ export default async function ThemesPage() {
           </p>
         </div>
         <div className="ml-auto">
-          <RegenerateSummariesButton />
+          {canEdit && <RegenerateSummariesButton />}
         </div>
       </div>
 
       <div className="mb-5">
-        <ConsolidateThemes themeCount={themes.length} />
+        {canEdit && <ConsolidateThemes themeCount={themes.length} />}
       </div>
 
       <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
@@ -79,6 +81,7 @@ export default async function ThemesPage() {
             key={t.id}
             agg={agg}
             onRoadmap={onRoadmap.has(t.id)}
+            canEdit={canEdit}
             theme={{
               id: t.id,
               title: t.title,

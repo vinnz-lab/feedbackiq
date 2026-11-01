@@ -10,10 +10,13 @@ export function ReviewQueue({
   items,
   themes,
   unclassified,
+  readOnly = false,
 }: {
   items: ReviewItem[];
   themes: { id: string; title: string }[];
   unclassified: number;
+  /** Viewers: see the queue, change nothing. */
+  readOnly?: boolean;
 }) {
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [pending, start] = useTransition();
@@ -69,13 +72,14 @@ export function ReviewQueue({
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <RunAiButton count={unclassified} selectedIds={ids} selectedEligible={eligible} />
+        {!readOnly && <RunAiButton count={unclassified} selectedIds={ids} selectedEligible={eligible} />}
+        {readOnly && <span className="text-[12px] text-muted">👁 View only — you can see the queue but not approve, discard or run AI.</span>}
       </div>
 
       {/* Selection toolbar. Sticky because the queue can run to dozens of
           items, and a control you have scrolled past may as well not exist —
           which is exactly how 40 rows got discarded one at a time. */}
-      {items.length > 0 && (
+      {items.length > 0 && !readOnly && (
         <div className="sticky top-0 z-20 -mx-1 flex flex-wrap items-center gap-3 rounded-[10px] border border-border bg-surface px-3 py-2 shadow-[var(--shadow)]">
           <label className="flex cursor-pointer items-center gap-2 text-[12.5px] font-semibold">
             <input
@@ -108,7 +112,8 @@ export function ReviewQueue({
           key={it.id}
           item={it}
           themes={themes}
-          selectable
+          selectable={!readOnly}
+          readOnly={readOnly}
           selected={sel.has(it.id)}
           onToggle={(shiftKey) => toggle(i, shiftKey)}
         />
@@ -119,7 +124,7 @@ export function ReviewQueue({
         Nothing here counts in themes, dashboards or digests until a human approves it.
       </p>
 
-      {sel.size > 0 && (
+      {sel.size > 0 && !readOnly && (
         <div className="fixed bottom-5 left-1/2 z-40 flex -translate-x-1/2 items-center gap-3 rounded-[12px] bg-fg px-4 py-2.5 text-bg shadow-[var(--shadow-lg)]">
           <b className="text-[13px]">{sel.size} selected</b>
           <span className="h-5 w-px bg-[var(--muted)] opacity-40" />

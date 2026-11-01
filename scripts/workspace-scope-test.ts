@@ -61,8 +61,8 @@ check("every read/write of workspace data is filtered by workspace", unscoped.le
 // Sign-in, forgot-password and reset run BEFORE anyone is in a workspace.
 const PRE_LOGIN = ["login/actions", "forgot-password/actions", "reset-password/actions", "choose-password/actions"];
 const actions = files.filter((f) => /^\s*["']use server["']/.test(readFileSync(f, "utf8")) && !PRE_LOGIN.some((p) => f.includes(p)));
-const noCtx = actions.filter((f) => !/requireWorkspace\(\)/.test(readFileSync(f, "utf8")));
-check(`all ${actions.length} server-action files resolve the workspace via requireWorkspace()`, noCtx.length === 0, noCtx.join(", "));
+const noCtx = actions.filter((f) => !/requireWorkspace\(\)|requireCapability\(/.test(readFileSync(f, "utf8")));
+check(`all ${actions.length} server-action files resolve the workspace (requireWorkspace / requireCapability)`, noCtx.length === 0, noCtx.join(", "));
 const stillUser = actions.filter((f) => /requireUser\(\)/.test(strip(readFileSync(f, "utf8"))));
 check("no server action authorises by sign-in alone (requireUser)", stillUser.length === 0, stillUser.join(", "));
 
@@ -119,7 +119,7 @@ check("only the platform owner can block a workspace from their key, and only on
 
 // --- Jira ------------------------------------------------------------------
 const rj = strip(readFileSync("src/app/(app)/roadmap/jira-actions.ts", "utf8"));
-check("only workspace owners can preview, send or refresh Jira", /ctx\.role !== "owner"/.test(rj) && (rj.match(/await ownerContext\(\)/g) ?? []).length === 3);
+check("previewing, sending and refreshing Jira need the jira permission (owners + contributors)", /requireCapability\("jira"\)/.test(rj) && (rj.match(/await jiraContext\(\)/g) ?? []).length === 3);
 check("sending claims the item first, so a double-click can't make two tickets", rj.indexOf("set({ jiraKey: SENDING") < rj.indexOf("createJiraIssue("));
 check("a failed send releases the claim", /finally \{[\s\S]*jiraKey: null/.test(rj));
 const sj = strip(readFileSync("src/app/(app)/settings/jira-actions.ts", "utf8"));

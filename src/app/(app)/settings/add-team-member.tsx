@@ -9,6 +9,7 @@ const ROLES = [
   { value: "contributor", label: "Contributor — adds and reviews feedback" },
   { value: "executive", label: "Executive — dashboards and roadmap" },
   { value: "engineer", label: "Engineer — themes and roadmap" },
+  { value: "viewer", label: "Viewer — can look, can't change anything" },
   { value: "owner", label: "Product Owner — full access" },
 ];
 

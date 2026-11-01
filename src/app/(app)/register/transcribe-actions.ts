@@ -10,7 +10,7 @@ import {
   speakerCount,
 } from "@/lib/ai/transcribe";
 import { logAudit } from "@/lib/guard";
-import { requireWorkspace } from "@/lib/workspace";
+import { requireCapability } from "@/lib/permissions";
 
 export type PollResult = {
   checked: number;
@@ -31,7 +31,7 @@ export type PollResult = {
 export async function pollTranscriptions(): Promise<PollResult> {
   const out: PollResult = { checked: 0, completed: 0, stillRunning: 0, failed: 0 };
   try {
-    const wsId = (await requireWorkspace()).workspace.id;
+    const wsId = (await requireCapability("edit")).workspace.id;
     if (!isTranscriptionConfigured()) {
       return { ...out, error: "Transcription is not configured (ASSEMBLYAI_API_KEY)." };
     }

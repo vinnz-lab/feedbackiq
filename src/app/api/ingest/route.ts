@@ -8,6 +8,7 @@ import {
 } from "@/lib/ingest/fingerprint";
 import { getCurrentUser } from "@/lib/auth";
 import { getWorkspaceContext, type Workspace } from "@/lib/workspace";
+import { can, deniedMessage } from "@/lib/permissions";
 import { logAudit } from "@/lib/guard";
 import {
   isTranscriptionConfigured,
@@ -195,6 +196,9 @@ export async function POST(request: Request) {
   const ctx = await getWorkspaceContext();
   if (!ctx) {
     return Response.json({ error: "You don't have access to a workspace yet." }, { status: 403 });
+  }
+  if (!can(ctx.role, "edit")) {
+    return Response.json({ error: deniedMessage("edit") }, { status: 403 });
   }
   const ws = ctx.workspace;
 

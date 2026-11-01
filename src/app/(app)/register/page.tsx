@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { and, eq, desc, count } from "drizzle-orm";
 import { currentWorkspaceId } from "@/lib/workspace";
+import { currentCan } from "@/lib/permissions";
 import { getDb, schema } from "@/db";
 import {
   TypePill,
@@ -102,6 +103,7 @@ export default async function RegisterPage({
 
 async function ItemsTab() {
   const wsId = await currentWorkspaceId();
+  const canEdit = await currentCan("edit");
   const db = await getDb();
   const fi = schema.feedbackItems;
   const rows = await db
@@ -130,7 +132,7 @@ async function ItemsTab() {
 
   return (
     <>
-      {unanalysed > 0 && (
+      {unanalysed > 0 && canEdit && (
         <div className="mb-3 rounded-[10px] border border-border bg-surface px-3.5 py-3 shadow-[var(--shadow)]">
           <p className="mb-2 text-[12.5px] text-muted">
             {unanalysed} approved item{unanalysed === 1 ? " has" : "s have"} no theme yet, because AI
@@ -176,6 +178,7 @@ async function ItemsTab() {
 
 async function ReviewTab() {
   const wsId = await currentWorkspaceId();
+  const canEdit = await currentCan("edit");
   const db = await getDb();
   const fi = schema.feedbackItems;
   const rows = await db
@@ -236,7 +239,7 @@ async function ReviewTab() {
     rowRef: r.rowRef,
   }));
 
-  return <ReviewQueue items={items} themes={themeList} unclassified={unclassified} />;
+  return <ReviewQueue items={items} themes={themeList} unclassified={unclassified} readOnly={!canEdit} />;
 }
 
 async function SourcesTab() {

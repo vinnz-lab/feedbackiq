@@ -338,3 +338,6 @@ ALTER TABLE "tracker_connections" ADD CONSTRAINT "tracker_connections_updated_by
 DELETE FROM "tracker_connections" a USING "tracker_connections" b
 WHERE a."workspace_id" = b."workspace_id" AND (a."created_at", a."id") < (b."created_at", b."id");--> statement-breakpoint
 CREATE UNIQUE INDEX "tracker_ws_uq" ON "tracker_connections" USING btree ("workspace_id");
+
+-- ============ VIEWER ROLE ============
+ALTER TYPE "public"."role" ADD VALUE IF NOT EXISTS 'viewer';

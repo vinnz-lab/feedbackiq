@@ -31,6 +31,7 @@ export async function seed(db: DB) {
     { tenantId: tenant.id, email: "tom@acme.test", name: "Tom Becker", role: "contributor" },
     { tenantId: tenant.id, email: "riya@acme.test", name: "Riya Shah", role: "executive" },
     { tenantId: tenant.id, email: "ana@acme.test", name: "Ana Costa", role: "engineer" },
+    { tenantId: tenant.id, email: "vera@acme.test", name: "Vera Viewer", role: "viewer" },
   ]).returning();
   // Access is granted by membership, not by belonging to the tenant.
   await db.insert(schema.workspaceMembers).values(

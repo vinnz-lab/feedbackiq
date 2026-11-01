@@ -53,10 +53,12 @@ export function ThemeCard({
   theme,
   agg,
   onRoadmap = false,
+  canEdit = true,
 }: {
   theme: ThemeRow;
   agg: ThemeAgg;
   onRoadmap?: boolean;
+  canEdit?: boolean;
 }) {
   return (
     // The button sits beside the link, not inside it — a button nested in a
@@ -93,7 +95,7 @@ export function ThemeCard({
       </Card>
     </Link>
     <div className="absolute bottom-3.5 right-4">
-      <PromoteChip themeId={theme.id} onRoadmap={onRoadmap} />
+      {(canEdit || onRoadmap) && <PromoteChip themeId={theme.id} onRoadmap={onRoadmap} />}
     </div>
     </div>
   );

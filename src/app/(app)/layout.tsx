@@ -6,6 +6,7 @@ import { getCurrentUser, initials, mustChangePassword, ROLE_LABEL } from "@/lib/
 import { getWorkspaceInfo } from "@/lib/workspace-info";
 import { getWorkspaceContext } from "@/lib/workspace";
 import { isPlatformAdmin } from "@/lib/platform";
+import { can } from "@/lib/permissions";
 import { signOut } from "@/app/login/actions";
 import { getDb, schema } from "@/db";
 
@@ -70,6 +71,7 @@ export default async function AppLayout({
         currentWorkspaceId={ctx.workspace.id}
         workspaces={ctx.memberships.map((m) => ({ id: m.workspace.id, name: m.workspace.name, sub: m.workspace.description ?? "", role: m.role }))}
         canCreateWorkspace={isPlatformAdmin(ctx.user.email)}
+        canEdit={can(ctx.role, "edit")}
         tenantName={info.tenantName}
         workspaceName={info.workspaceName}
         workspaceSub={info.workspaceSub}

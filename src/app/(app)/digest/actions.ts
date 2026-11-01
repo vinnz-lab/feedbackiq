@@ -7,12 +7,12 @@ import { and, desc, eq, count } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { generateDigestAi } from "@/lib/ai/digest";
 import { guardAiRun } from "@/lib/guard";
-import { requireWorkspace } from "@/lib/workspace";
+import { requireCapability } from "@/lib/permissions";
 import { loadEmerging } from "@/lib/trend-data";
 
 async function generateDigestInner(): Promise<{ ok: boolean; error?: string }> {
   try {
-    const ctx = await requireWorkspace();
+    const ctx = await requireCapability("edit");
     const user = ctx.user;
     const ws = ctx.workspace;
     const db = await getDb();

@@ -1,4 +1,4 @@
-import { requireWorkspace } from "@/lib/workspace";
+import { requireCapability } from "@/lib/permissions";
 import { withAiKey, type AiKey } from "./ai-context";
 import { resolveAiKey } from "./workspace-key";
 
@@ -13,7 +13,7 @@ import { resolveAiKey } from "./workspace-key";
 export async function withWorkspaceAi<T>(fallback: (error: string) => T, fn: () => Promise<T>): Promise<T> {
   let ai: AiKey;
   try {
-    const ctx = await requireWorkspace();
+    const ctx = await requireCapability("edit");
     ai = await resolveAiKey(ctx.workspace.id);
   } catch (e) {
     return fallback((e as Error).message);
