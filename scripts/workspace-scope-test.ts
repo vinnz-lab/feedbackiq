@@ -32,9 +32,10 @@ const ALLOW_UNSCOPED: Record<string, string> = {
   "src/lib/jira-workspace.ts": "reads the connection / builds the ticket for the workspace id it is given",
   "src/lib/ai/workspace-key.ts": "reads the settings row of the workspace id it is given",
   "src/lib/workspace-delete.ts": "deletes ONE workspace by id; callers check permission",
+  "src/lib/briefings-retention.ts": "daily clean-up: deletes only briefings past their 30-day expiry, in every workspace",
   "src/lib/platform-data.ts": "platform owner's list: names/owner/date of workspaces THEY set up, no content",
 };
-const OWNED = ["sources", "themes", "feedbackItems", "enhancements", "digests", "productAreas", "trackerConnections", "aiConfigs", "auditEvents", "workspaceAiSettings", "incomingWebhooks", "digestChannels", "shareLinks"];
+const OWNED = ["sources", "themes", "feedbackItems", "enhancements", "digests", "productAreas", "trackerConnections", "aiConfigs", "auditEvents", "workspaceAiSettings", "incomingWebhooks", "digestChannels", "shareLinks", "audioBriefings", "audioFiles"];
 
 let fail = 0;
 const check = (n: string, ok: boolean, d = "") => { console.log(`${ok ? "✓" : "✗"} ${n}${d ? " — " + d : ""}`); if (!ok) fail++; };

@@ -57,6 +57,13 @@
       "when": 1793548950710,
       "tag": "0007_digest_channels_share_links",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793558608333,
+      "tag": "0008_audio_briefings",
+      "breakpoints": true
     }
   ]
 }

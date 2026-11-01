@@ -109,6 +109,19 @@ async function main() {
   const after7 = await one(`SELECT (SELECT count(*) FROM feedback_items) items, (SELECT count(*) FROM themes) themes, (SELECT count(*) FROM users) users`);
   check("0007 changes no existing data", JSON.stringify(after7) === JSON.stringify(after));
 
+  // 3h. 0008: audio briefings.
+  await run("drizzle/0008_audio_briefings.sql");
+  const t8 = await one(`SELECT relname, relrowsecurity FROM pg_class WHERE relname IN ('audio_briefings','audio_files') ORDER BY relname`);
+  check("0008 adds the audio briefing tables, protected from the public API", t8.length === 2 && t8.every((r) => r.relrowsecurity === true));
+  await one(`INSERT INTO audio_briefings (workspace_id, title, theme_ids, theme_titles, expires_at) SELECT id, 't', '[]', '[]', now() FROM workspaces LIMIT 1`);
+  await one(`INSERT INTO audio_files (briefing_id, workspace_id, mp3) SELECT id, workspace_id, '\\xfff3'::bytea FROM audio_briefings LIMIT 1`);
+  const bytes = await one(`SELECT length(mp3) n FROM audio_files`);
+  check("0008 stores audio bytes", Number(bytes[0].n) === 2);
+  await one(`DELETE FROM audio_briefings`);
+  check("…and deleting a briefing deletes its audio", (await one(`SELECT count(*) n FROM audio_files`))[0].n == 0);
+  const after8 = await one(`SELECT (SELECT count(*) FROM feedback_items) items, (SELECT count(*) FROM themes) themes, (SELECT count(*) FROM users) users`);
+  check("0008 changes no existing data", JSON.stringify(after8) === JSON.stringify(after));
+
   // 4. The OLD app code still works on the new database (the window between
   //    running the SQL and the new code going live).
   const oldStyle = await one(`SELECT id FROM workspaces LIMIT 1`);

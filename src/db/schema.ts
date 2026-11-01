@@ -10,6 +10,7 @@ import {
   jsonb,
   index,
   uniqueIndex,
+  customType,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
@@ -211,6 +212,52 @@ export const shareLinks = pgTable(
   },
   (t) => [uniqueIndex("share_links_ws_kind_uq").on(t.workspaceId, t.kind), uniqueIndex("share_links_token_uq").on(t.tokenHash)],
 );
+
+/** Raw bytes (Postgres bytea). Used only for small, short-lived audio files. */
+const bytea = customType<{ data: Buffer; driverData: Buffer | Uint8Array }>({
+  dataType: () => "bytea",
+  fromDriver: (v) => (Buffer.isBuffer(v) ? v : Buffer.from(v)),
+});
+
+/**
+ * Podcast-style audio briefings: two AI hosts talking through the feedback
+ * behind a few chosen themes. Only the 10 newest per workspace are kept, and
+ * each expires 30 days after it was made (see lib/briefings.ts).
+ */
+export const audioBriefings = pgTable(
+  "audio_briefings",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    themeIds: jsonb("theme_ids").notNull(),
+    themeTitles: jsonb("theme_titles").notNull(),
+    length: text("length").notNull().default("balanced"),
+    nameMode: text("name_mode").notNull().default("mask"),
+    /** writing → voicing → ready (or failed) */
+    status: text("status").notNull().default("writing"),
+    error: text("error"),
+    script: jsonb("script"),
+    hasAudio: boolean("has_audio").notNull().default(false),
+    durationSec: integer("duration_sec"),
+    sizeBytes: integer("size_bytes"),
+    /** Which key voiced it: "workspace" | "platform" | null (script only). */
+    voiceSource: text("voice_source"),
+    createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  },
+  (t) => [index("briefings_ws_idx").on(t.workspaceId, t.createdAt)],
+);
+
+/** The MP3 for a briefing, kept apart so listing briefings never loads audio. */
+export const audioFiles = pgTable("audio_files", {
+  briefingId: uuid("briefing_id")
+    .primaryKey()
+    .references(() => audioBriefings.id, { onDelete: "cascade" }),
+  workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  mp3: bytea("mp3").notNull(),
+});
 
 export const productAreas = pgTable("product_areas", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),

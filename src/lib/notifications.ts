@@ -26,7 +26,7 @@ export async function getNotifications(workspaceId: string, userId: string): Pro
   const since = new Date(Date.now() - WINDOW_DAYS * 86_400_000);
   const s = schema;
 
-  const [review, sources, themes, digests, audits] = await Promise.all([
+  const [review, sources, themes, digests, audits, briefs] = await Promise.all([
     db
       .select({ id: s.feedbackItems.id })
       .from(s.feedbackItems)
@@ -61,6 +61,12 @@ export async function getNotifications(workspaceId: string, userId: string): Pro
       )
       .orderBy(desc(s.auditEvents.createdAt))
       .limit(MAX * 2),
+    db
+      .select({ id: s.audioBriefings.id, title: s.audioBriefings.title, status: s.audioBriefings.status, hasAudio: s.audioBriefings.hasAudio, createdAt: s.audioBriefings.createdAt })
+      .from(s.audioBriefings)
+      .where(and(eq(s.audioBriefings.workspaceId, workspaceId), gt(s.audioBriefings.createdAt, since), gt(s.audioBriefings.expiresAt, new Date())))
+      .orderBy(desc(s.audioBriefings.createdAt))
+      .limit(10),
   ]);
 
   const notices: Notice[] = [];
@@ -145,6 +151,12 @@ export async function getNotifications(workspaceId: string, userId: string): Pro
     } else if (a.action === "theme.rename") {
       notices.push({ ...base, icon: "✏️", title: `${who(a)} renamed a theme`, detail: `“${String(after.from ?? "")}” → “${String(after.to ?? "")}”`, href: a.entityId ? `/themes/${a.entityId}` : "/themes" });
     }
+  }
+
+  // Briefings finish in the background, so even your own one is news when it's ready.
+  for (const br of briefs) {
+    if (br.status === "ready") notices.push({ id: `brief-${br.id}`, icon: "🎧", title: `Audio briefing ready: ${br.title}`, detail: br.hasAudio ? "Listen or download it" : "Script only", href: "/briefings", at: br.createdAt.toISOString(), mine: false });
+    else if (br.status === "failed") notices.push({ id: `brief-${br.id}`, icon: "⚠️", title: "An audio briefing couldn't be made", detail: br.title, href: "/briefings", at: br.createdAt.toISOString(), mine: false });
   }
 
   notices.sort((x, y) => y.at.localeCompare(x.at));

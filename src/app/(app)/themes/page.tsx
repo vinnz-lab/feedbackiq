@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { and, eq } from "drizzle-orm";
 import { currentWorkspaceId } from "@/lib/workspace";
 import { currentCan } from "@/lib/permissions";
@@ -66,7 +67,10 @@ export default async function ThemesPage() {
             {themes.length} themes synthesized from all approved feedback in {info.workspaceName}
           </p>
         </div>
-        <div className="ml-auto">
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <Link href="/briefings" className="rounded-[var(--radius-btn)] border border-border bg-surface px-3.5 py-2 text-[13px] font-semibold hover:bg-hover">
+            🎧 Audio briefing
+          </Link>
           {canEdit && <RegenerateSummariesButton />}
         </div>
       </div>
