@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { and, eq, count } from "drizzle-orm";
 import { Sidebar } from "@/components/sidebar";
 import { Topbar } from "@/components/topbar";
-import { getCurrentUser, initials, ROLE_LABEL } from "@/lib/auth";
+import { getCurrentUser, initials, mustChangePassword, ROLE_LABEL } from "@/lib/auth";
 import { getWorkspaceInfo } from "@/lib/workspace-info";
 import { getWorkspaceContext } from "@/lib/workspace";
 import { isPlatformAdmin } from "@/lib/platform";
@@ -27,6 +27,8 @@ export default async function AppLayout({
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+  // A temporary password must be replaced before anything else.
+  if (await mustChangePassword()) redirect("/choose-password");
 
   // Signed in but not a member of any workspace: show nothing from anywhere.
   const ctx = await getWorkspaceContext();

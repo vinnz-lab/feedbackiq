@@ -10,6 +10,9 @@ import { WorkspaceDetails } from "./workspace-details";
 import { DeleteWorkspace } from "./delete-workspace";
 import { ProvisionWorkspace } from "./provision-workspace";
 import { AccountPassword } from "./account-password";
+import { ResetPasswordButton } from "./reset-member-password";
+import { resetMemberPassword } from "./team-actions";
+import { canResetPassword, workspaceCountFor } from "@/lib/password-admin";
 import { AiConnection } from "./ai-connection";
 import { getAiKeyStatus } from "@/lib/ai/workspace-key";
 import { canEncrypt } from "@/lib/secret-box";
@@ -49,6 +52,19 @@ export default async function SettingsPage() {
     };
   }
   const others = users.filter((u) => u.id !== me.id).map((u) => u.name);
+  // Who this person may reset — see lib/password-admin.ts for why it's strict.
+  const resetBlocked = new Map<string, string | null>();
+  for (const u of users) {
+    const d = canResetPassword({
+      actorIsPlatformAdmin: isPlatformAdmin(me.email),
+      actorRoleHere: ctx.role,
+      actorId: me.id,
+      targetId: u.id,
+      targetIsPlatformAdmin: isPlatformAdmin(u.email),
+      targetWorkspaceCount: await workspaceCountFor(u.id),
+    });
+    resetBlocked.set(u.id, d.ok ? null : d.reason);
+  }
   const aiStatus = await getAiKeyStatus(ctx.workspace.id);
   const platformAdmin = isPlatformAdmin(me.email);
   const provisioned = platformAdmin
@@ -68,7 +84,7 @@ export default async function SettingsPage() {
         supabaseActive={mode === "supabase"}
       />
 
-      {platformAdmin && <ProvisionWorkspace provisioned={provisioned} />}
+      {platformAdmin && <ProvisionWorkspace provisioned={provisioned} canResetPasswords={mode === "supabase"} />}
 
       <AiConnection
         status={{ ...aiStatus, updatedAt: aiStatus.updatedAt ? aiStatus.updatedAt.toISOString() : null }}
@@ -111,7 +127,7 @@ export default async function SettingsPage() {
           {users.map((u) => (
             <div
               key={u.id}
-              className="flex items-center gap-3 rounded-[10px] border border-border bg-bg px-3.5 py-2.5"
+              className="flex flex-wrap items-center gap-3 rounded-[10px] border border-border bg-bg px-3.5 py-2.5"
             >
               <span className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo text-[11px] font-bold text-white">
                 {initials(u.name)}
@@ -129,6 +145,15 @@ export default async function SettingsPage() {
               >
                 {ROLE_LABEL[u.role] ?? u.role}
               </span>
+              {isOwner && u.id !== me?.id && mode === "supabase" && (
+                <ResetPasswordButton
+                  action={resetMemberPassword}
+                  field="id"
+                  value={u.id}
+                  name={u.name}
+                  blockedReason={resetBlocked.get(u.id)}
+                />
+              )}
               {isOwner && u.id !== me?.id && <RemoveMember id={u.id} name={u.name} />}
             </div>
           ))}

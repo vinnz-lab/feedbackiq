@@ -7,6 +7,7 @@ import { logAudit } from "@/lib/guard";
 import { isPlatformAdmin } from "@/lib/platform";
 import { requireWorkspace } from "@/lib/workspace";
 import { deleteWorkspaceCompletely } from "@/lib/workspace-delete";
+import { canResetPassword, setTemporaryPassword } from "@/lib/password-admin";
 import { createSupabaseAdminClient, isAdminConfigured } from "@/lib/supabase/admin";
 import { authMode } from "@/lib/supabase/env";
 
@@ -291,6 +292,73 @@ export async function setPlatformKeyAllowed(workspaceId: string, allowed: boolea
     });
     revalidatePath("/settings");
     return {};
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}
+
+export type ResetOwnerState = { error?: string; ok?: string; temp?: { email: string; password: string } };
+
+/**
+ * Resets the password of the OWNER of a workspace you set up — the usual case
+ * being a tester who forgot theirs. You still never see inside the workspace.
+ */
+export async function resetProvisionedOwnerPassword(_prev: ResetOwnerState, formData: FormData): Promise<ResetOwnerState> {
+  try {
+    const ctx = await requireWorkspace();
+    if (!isPlatformAdmin(ctx.user.email)) return { error: "Only the platform owner can do this." };
+    if (authMode() !== "supabase" || !isAdminConfigured()) {
+      return { error: "Password resets need real sign-in (Supabase) with SUPABASE_SERVICE_ROLE_KEY configured." };
+    }
+    const workspaceId = String(formData.get("workspaceId") ?? "");
+    if (!/^[0-9a-f-]{36}$/i.test(workspaceId)) return { error: "No workspace selected." };
+    const db = await getDb();
+    const [setUp] = await db
+      .select({ after: schema.auditEvents.after })
+      .from(schema.auditEvents)
+      .where(
+        and(
+          eq(schema.auditEvents.workspaceId, workspaceId),
+          eq(schema.auditEvents.action, "workspace.provisioned"),
+          eq(schema.auditEvents.actorId, ctx.user.id),
+        ),
+      )
+      .limit(1);
+    if (!setUp) return { error: "You can only do this for workspaces you set up." };
+    const ownerEmail = String((setUp.after as { owner?: string } | null)?.owner ?? "");
+    const [owner] = await db
+      .select({ id: schema.users.id, name: schema.users.name, email: schema.users.email })
+      .from(schema.workspaceMembers)
+      .innerJoin(schema.users, eq(schema.workspaceMembers.userId, schema.users.id))
+      .where(
+        and(
+          eq(schema.workspaceMembers.workspaceId, workspaceId),
+          eq(schema.workspaceMembers.role, "owner"),
+          sql`lower(${schema.users.email}) = lower(${ownerEmail})`,
+        ),
+      )
+      .limit(1);
+    if (!owner) return { error: "The person you set it up for is no longer its owner." };
+    const decision = canResetPassword({
+      actorIsPlatformAdmin: true,
+      actorRoleHere: "owner",
+      actorId: ctx.user.id,
+      targetId: owner.id,
+      targetIsPlatformAdmin: isPlatformAdmin(owner.email),
+      targetWorkspaceCount: 1,
+    });
+    if (!decision.ok) return { error: decision.reason };
+
+    const password = await setTemporaryPassword(owner.email);
+    await logAudit({
+      workspaceId,
+      actorId: ctx.user.id,
+      actorLabel: ctx.user.name,
+      action: "account.password_reset_by_platform_owner",
+      entityType: "user",
+      entityId: owner.id,
+    });
+    return { ok: `Temporary password set for ${owner.name}.`, temp: { email: owner.email, password } };
   } catch (e) {
     return { error: (e as Error).message };
   }

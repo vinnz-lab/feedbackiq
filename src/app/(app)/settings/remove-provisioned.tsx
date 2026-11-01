@@ -1,7 +1,8 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { removeProvisionedWorkspace, setPlatformKeyAllowed, type RemoveProvisionedState } from "./platform-actions";
+import { removeProvisionedWorkspace, resetProvisionedOwnerPassword, setPlatformKeyAllowed, type RemoveProvisionedState } from "./platform-actions";
+import { ResetPasswordButton } from "./reset-member-password";
 import { useTransition } from "react";
 
 export type ProvisionedRow = {
@@ -16,7 +17,15 @@ export type ProvisionedRow = {
 };
 
 /** One row of "Workspaces you've set up", with an inline, guarded Remove. */
-export function ProvisionedItem({ p, onRemoved }: { p: ProvisionedRow; onRemoved: (message: string) => void }) {
+export function ProvisionedItem({
+  p,
+  onRemoved,
+  canResetOwner = false,
+}: {
+  p: ProvisionedRow;
+  onRemoved: (message: string) => void;
+  canResetOwner?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const [typed, setTyped] = useState("");
   const [allowed, setAllowed] = useState(p.allowPlatformKey);
@@ -36,7 +45,7 @@ export function ProvisionedItem({ p, onRemoved }: { p: ProvisionedRow; onRemoved
 
   return (
     <div className="border-b border-border py-2 text-[12.5px] last:border-0">
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <span className="font-medium">{p.name}</span>
         <span className="text-muted">{p.owner}</span>
         {p.hasOwnKey && (
@@ -67,6 +76,9 @@ export function ProvisionedItem({ p, onRemoved }: { p: ProvisionedRow; onRemoved
           Uses your AI key
         </label>
         <span className="text-[11.5px] text-muted">{new Date(p.createdAt).toLocaleDateString("en-GB")}</span>
+        {!open && canResetOwner && (
+          <ResetPasswordButton action={resetProvisionedOwnerPassword} field="workspaceId" value={p.workspaceId} name={p.owner} />
+        )}
         {!open && (
           <button
             type="button"

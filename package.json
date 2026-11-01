@@ -7,12 +7,12 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:unit": "tsx scripts/gemini-test.ts && tsx scripts/parse-test.ts && tsx scripts/extract-test.ts && tsx scripts/transcribe-test.ts && tsx scripts/fingerprint-test.ts && tsx scripts/similarity-test.ts && tsx scripts/critical-path-test.ts && tsx scripts/workspace-scope-test.ts && tsx scripts/migration-rehearsal-test.ts && tsx scripts/clean-setup-test.ts && tsx scripts/password-test.ts && tsx scripts/recovery-test.ts",
+    "test:unit": "tsx scripts/gemini-test.ts && tsx scripts/parse-test.ts && tsx scripts/extract-test.ts && tsx scripts/transcribe-test.ts && tsx scripts/fingerprint-test.ts && tsx scripts/similarity-test.ts && tsx scripts/critical-path-test.ts && tsx scripts/workspace-scope-test.ts && tsx scripts/migration-rehearsal-test.ts && tsx scripts/clean-setup-test.ts && tsx scripts/password-test.ts && tsx scripts/recovery-test.ts && tsx scripts/password-admin-test.ts",
     "test:e2e": "node regress.mjs && node auth-test.mjs && node dupe-test.mjs && node force-flow-test.mjs && node backup-test.mjs && node select-test.mjs && node roadmap-test.mjs && node rename-ui-test.mjs",
     "db:test": "PGLITE_DIR=./.pglite-test tsx scripts/db-setup.ts && PGLITE_DIR=./.pglite-test tsx scripts/seed-unclassified.ts 8",
     "test:db": "PGLITE_DIR=./.pglite-test tsx scripts/split-query-test.ts && PGLITE_DIR=./.pglite-test tsx scripts/split-dedupe-test.ts && PGLITE_DIR=./.pglite-test tsx scripts/merge-test.ts && PGLITE_DIR=./.pglite-test tsx scripts/scoped-run-test.ts && PGLITE_DIR=./.pglite-test tsx scripts/rename-test.ts && PGLITE_DIR=./.pglite-test tsx scripts/emerging-test.ts",
     "test:isolation": "node isolation-test.mjs && node workspace-switch-test.mjs && node workspace-delete-test.mjs && node workspace-provision-test.mjs && node workspace-remove-test.mjs && node ai-keys-ui-test.mjs",
-    "test:auth": "node password-reset-test.mjs"
+    "test:auth": "node password-reset-test.mjs && node admin-reset-test.mjs"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.4",

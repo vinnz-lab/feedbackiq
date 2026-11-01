@@ -4,6 +4,9 @@ import { revalidatePath } from "next/cache";
 import { and, count, eq, sql } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { requireWorkspace } from "@/lib/workspace";
+import { logAudit } from "@/lib/guard";
+import { isPlatformAdmin } from "@/lib/platform";
+import { canResetPassword, setTemporaryPassword, workspaceCountFor } from "@/lib/password-admin";
 import { createSupabaseAdminClient, isAdminConfigured } from "@/lib/supabase/admin";
 import { authMode } from "@/lib/supabase/env";
 import type { RoleT } from "@/db/schema";
@@ -180,6 +183,53 @@ export async function removeTeamMember(
 
     revalidatePath("/settings");
     return { ok: `Removed ${target.name}.${authNote}` };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}
+
+export type ResetPasswordState = { error?: string; ok?: string; temp?: { email: string; password: string } };
+
+/**
+ * Gives someone in THIS workspace a temporary password. They must choose their
+ * own the next time they sign in. See lib/password-admin.ts for who may do this.
+ */
+export async function resetMemberPassword(_prev: ResetPasswordState, formData: FormData): Promise<ResetPasswordState> {
+  try {
+    const ctx = await requireWorkspace();
+    if (authMode() !== "supabase" || !isAdminConfigured()) {
+      return { error: "Password resets need real sign-in (Supabase) with SUPABASE_SERVICE_ROLE_KEY configured." };
+    }
+    const id = String(formData.get("id") ?? "");
+    const db = await getDb();
+    const [row] = await db
+      .select({ user: schema.users })
+      .from(schema.workspaceMembers)
+      .innerJoin(schema.users, eq(schema.workspaceMembers.userId, schema.users.id))
+      .where(and(eq(schema.workspaceMembers.workspaceId, ctx.workspace.id), eq(schema.workspaceMembers.userId, id)))
+      .limit(1);
+    if (!row) return { error: "That person isn't in this workspace." };
+
+    const decision = canResetPassword({
+      actorIsPlatformAdmin: isPlatformAdmin(ctx.user.email),
+      actorRoleHere: ctx.role,
+      actorId: ctx.user.id,
+      targetId: row.user.id,
+      targetIsPlatformAdmin: isPlatformAdmin(row.user.email),
+      targetWorkspaceCount: await workspaceCountFor(row.user.id),
+    });
+    if (!decision.ok) return { error: decision.reason };
+
+    const password = await setTemporaryPassword(row.user.email);
+    await logAudit({
+      workspaceId: ctx.workspace.id,
+      actorId: ctx.user.id,
+      actorLabel: ctx.user.name,
+      action: "account.password_reset_by_owner",
+      entityType: "user",
+      entityId: row.user.id,
+    });
+    return { ok: `Temporary password set for ${row.user.name}.`, temp: { email: row.user.email, password } };
   } catch (e) {
     return { error: (e as Error).message };
   }

@@ -171,3 +171,20 @@ export function initials(name: string) {
     .slice(0, 2)
     .join("");
 }
+
+/**
+ * True when the signed-in account was given a temporary password and must
+ * choose its own before using the app. Read from app_metadata, which only the
+ * server can set or clear, so it can't be skipped from the browser.
+ */
+export const mustChangePassword = cache(async (): Promise<boolean> => {
+  if (authMode() !== "supabase") return false;
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data } = await supabase.auth.getClaims();
+    const claims = (data as { claims?: { app_metadata?: { must_change_password?: unknown } } } | null)?.claims;
+    return claims?.app_metadata?.must_change_password === true;
+  } catch {
+    return false;
+  }
+});

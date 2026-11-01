@@ -14,8 +14,10 @@ function generatePassword() {
 /** Platform owner only: set up a private workspace for someone else. */
 export function ProvisionWorkspace({
   provisioned,
+  canResetPasswords = false,
 }: {
   provisioned: ProvisionedRow[];
+  canResetPasswords?: boolean;
 }) {
   const [state, action, pending] = useActionState<ProvisionState, FormData>(provisionWorkspace, {});
   const [password, setPassword] = useState("");
@@ -133,7 +135,7 @@ export function ProvisionWorkspace({
           <div className="mb-2 text-[12.5px] font-semibold">Workspaces you&apos;ve set up</div>
           <div className="flex flex-col">
             {provisioned.map((p) => (
-              <ProvisionedItem key={p.workspaceId} p={p} onRemoved={onRemoved} />
+              <ProvisionedItem key={p.workspaceId} p={p} onRemoved={onRemoved} canResetOwner={canResetPasswords} />
             ))}
           </div>
           <p className="mt-2 text-[11.5px] text-muted">Names and owners only — their content stays private to them.</p>
