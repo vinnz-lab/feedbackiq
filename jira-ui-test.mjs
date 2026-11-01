@@ -23,7 +23,7 @@ async function session(name) {
 }
 const jiraSection = (page) => page.locator("section", { hasText: "Send roadmap items to Jira Cloud" });
 async function connect(page, { site = "acme-test.atlassian.net", email = "jamie@acme.test", token = "good-token-123456", project = "FIQ", type = "story", mode = "mask" } = {}) {
-  await page.goto(base + "/settings", { waitUntil: "networkidle" });
+  await page.goto(base + "/integrations", { waitUntil: "networkidle" });
   await page.getByLabel("Jira site").fill(site);
   await page.getByLabel("Atlassian account email").fill(email);
   await page.getByLabel("Jira API token").fill(token);
@@ -57,7 +57,7 @@ check(!/good-token-123456/.test(await jamie.page.content()), "the token isn't sh
 
 console.log("\nA contributor:");
 const tom = await session("Tom Becker");
-await tom.page.goto(base + "/settings", { waitUntil: "networkidle" });
+await tom.page.goto(base + "/integrations", { waitUntil: "networkidle" });
 t = await jiraSection(tom.page).innerText();
 check(/Connected to acme-test/.test(t) && /Only the workspace owner can connect Jira/.test(t) && (await tom.page.getByLabel("Jira API token").count()) === 0, "sees it's connected, can't change it");
 
@@ -127,7 +127,7 @@ const vera = await session("Vera Viewer");
 await vera.page.goto(base + "/roadmap", { waitUntil: "networkidle" });
 check((await vera.page.getByRole("button", { name: "→ Send to Jira" }).count()) === 0 && (await vera.page.getByRole("button", { name: "↻ Refresh from Jira" }).count()) === 0, "a viewer can't send or refresh");
 check((await vera.page.getByRole("link", { name: /FIQ-1/ }).count()) === 1, "but can follow the ticket link");
-await vera.page.goto(base + "/settings", { waitUntil: "networkidle" });
+await vera.page.goto(base + "/integrations", { waitUntil: "networkidle" });
 check((await vera.page.getByLabel("Jira API token").count()) === 0, "and can't change the Jira connection");
 
 console.log("\nName settings:");
@@ -155,11 +155,11 @@ check(!names2.some((nm) => p3.toLowerCase().includes(nm.toLowerCase())), `"remov
 
 console.log("\nAnother workspace:");
 const tess = await session("Tess Tester");
-await tess.page.goto(base + "/settings", { waitUntil: "networkidle" });
+await tess.page.goto(base + "/integrations", { waitUntil: "networkidle" });
 check(/Not connected/.test(await jiraSection(tess.page).innerText()), "Tess's workspace isn't connected to Jamie's Jira");
 
 console.log("\nDisconnecting:");
-await jamie.page.goto(base + "/settings", { waitUntil: "networkidle" });
+await jamie.page.goto(base + "/integrations", { waitUntil: "networkidle" });
 await jamie.page.getByRole("button", { name: "Disconnect Jira" }).click();
 await jamie.page.waitForTimeout(2000);
 await jamie.page.goto(base + "/roadmap", { waitUntil: "networkidle" });

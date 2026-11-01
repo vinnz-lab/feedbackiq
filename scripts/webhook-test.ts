@@ -1,0 +1,52 @@
+// Run: npx tsx scripts/webhook-test.ts
+import { generateWebhookToken, hashWebhookToken, looksLikeWebhookToken, parseWebhookBody, MAX_ITEMS, MAX_TEXT } from "../src/lib/webhook";
+let fail = 0;
+const check = (n: string, ok: boolean) => { console.log((ok ? "✓ " : "✗ ") + n); if (!ok) fail++; };
+const J = "application/json";
+
+console.log("Addresses:");
+const t1 = generateWebhookToken(), t2 = generateWebhookToken();
+check("new addresses look right and are all different", looksLikeWebhookToken(t1) && looksLikeWebhookToken(t2) && t1 !== t2);
+check("rejects junk, wrong prefix, wrong length, odd characters", ![null, "", "fiqwh_short", "abcde_" + t1.slice(6), t1 + "x", t1.slice(0, -1) + "-", t1 + "\n"].some((x) => looksLikeWebhookToken(x as string)));
+check("only a fixed-length hash is stored, never the address", hashWebhookToken(t1).length === 64 && !hashWebhookToken(t1).includes(t1.slice(6)) && hashWebhookToken(t1) === hashWebhookToken(t1) && hashWebhookToken(t1) !== hashWebhookToken(t2));
+
+console.log("\nShapes other apps send:");
+let r = parseWebhookBody(JSON.stringify({ feedback: "Export loses formatting", customer: "Acme", name: "Jo", date: "2026-10-30" }), J);
+check("one JSON item with customer, person and date", r.ok && r.items.length === 1 && r.items[0].quote === "Export loses formatting" && r.items[0].customer === "Acme" && r.items[0].submitter === "Jo" && r.items[0].occurredAt?.toISOString().startsWith("2026-10-30") === true);
+r = parseWebhookBody(JSON.stringify([{ text: "A" }, { message: "B" }, "C"]), J);
+check("a list, with different field names and bare strings", r.ok && r.items.map((i) => i.quote).join() === "A,B,C");
+r = parseWebhookBody(JSON.stringify({ source: "Typeform", items: [{ Comment: "x1" }, { "Feedback": "x2", Company: "Beta" }] }), J);
+check("{items:[…]} with a source and capitalised field names", r.ok && r.items.length === 2 && r.source === "Typeform" && r.items[1].customer === "Beta");
+r = parseWebhookBody(JSON.stringify({ responses: [{ answer: "y" }] }), J);
+check("other list names (responses)", r.ok && r.items[0].quote === "y");
+r = parseWebhookBody("feedback=Search+is+slow&customer=Gamma", "application/x-www-form-urlencoded");
+check("form posts", r.ok && r.items[0].quote === "Search is slow" && r.items[0].customer === "Gamma");
+r = parseWebhookBody("plain text sent as a form", "application/x-www-form-urlencoded");
+check("raw text labelled as a form (curl -d, some Zapier steps)", r.ok && r.items[0].quote === "plain text sent as a form");
+r = parseWebhookBody("Love+the+caf%C3%A9+view", "application/x-www-form-urlencoded");
+check("…including URL-encoded text", r.ok && r.items[0].quote === "Love the café view");
+r = parseWebhookBody("Love the new dashboard", "text/plain");
+check("plain text", r.ok && r.items[0].quote === "Love the new dashboard");
+r = parseWebhookBody("Plain text, no content type", "");
+check("plain text with no content type", r.ok && r.items[0].quote === "Plain text, no content type");
+r = parseWebhookBody(JSON.stringify({ feedback: "t", timestamp: 1761955200 }), J);
+check("unix-seconds timestamps", r.ok && r.items[0].occurredAt?.getUTCFullYear() === 2025);
+r = parseWebhookBody(JSON.stringify({ feedback: "t", date: "3000-01-01" }), J);
+check("future or nonsense dates are dropped, the feedback kept", r.ok && r.items[0].occurredAt === null && (parseWebhookBody(JSON.stringify({ feedback: "t", date: "soon" }), J) as any).items[0].occurredAt === null);
+
+console.log("\nBad or awkward input:");
+check("invalid JSON is a clear error", (() => { const x = parseWebhookBody("{not json", J); return !x.ok && /valid JSON/.test(x.error); })());
+check("nothing usable is a clear error naming the field", (() => { const x = parseWebhookBody(JSON.stringify({ rating: 5 }), J); return !x.ok && /feedback/.test(x.error); })());
+r = parseWebhookBody(JSON.stringify([{ feedback: "ok" }, { rating: 3 }, null, 7, { feedback: "   " }]), J);
+check("unusable entries are skipped and counted", r.ok && r.items.length === 1 && r.ignored === 4);
+check(`more than ${MAX_ITEMS} items is refused`, !parseWebhookBody(JSON.stringify(Array.from({ length: MAX_ITEMS + 1 }, (_, i) => ({ feedback: "f" + i }))), J).ok);
+check(`exactly ${MAX_ITEMS} is fine`, parseWebhookBody(JSON.stringify(Array.from({ length: MAX_ITEMS }, (_, i) => ({ feedback: "f" + i }))), J).ok);
+r = parseWebhookBody(JSON.stringify({ feedback: "z".repeat(MAX_TEXT + 500), customer: "c".repeat(500) }), J);
+check("very long text is cut and reported", r.ok && r.items[0].quote.length === MAX_TEXT && r.truncated === 1 && r.items[0].customer!.length === 200);
+r = parseWebhookBody('{"__proto__": {"feedback": "evil"}, "constructor": "x", "feedback": "fine"}', J);
+check("__proto__ tricks are ignored", r.ok && r.items[0].quote === "fine" && ({} as any).feedback === undefined);
+r = parseWebhookBody(JSON.stringify({ feedback: 12345 }), J);
+check("numbers are accepted as text", r.ok && r.items[0].quote === "12345");
+r = parseWebhookBody(JSON.stringify({ feedback: { nested: "x" }, text: "fallback" }), J);
+check("objects in a text field fall back to the next field", r.ok && r.items[0].quote === "fallback");
+process.exit(fail ? 1 : 0);

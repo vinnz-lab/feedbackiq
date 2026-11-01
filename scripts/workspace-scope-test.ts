@@ -27,12 +27,13 @@ const ALLOW_UNSCOPED: Record<string, string> = {
   "src/lib/themes/rename.ts": "operates on a theme id already verified to be in the workspace",
   "src/app/(app)/register/transcribe-actions.ts": "updates rows taken from a workspace-scoped query",
   "src/app/(app)/settings/team-actions.ts": "counts a user's memberships across workspaces on purpose",
+  "src/lib/webhook-receive.ts": "no login: the secret address identifies the workspace; every write uses hook.workspaceId",
   "src/lib/jira-workspace.ts": "reads the connection / builds the ticket for the workspace id it is given",
   "src/lib/ai/workspace-key.ts": "reads the settings row of the workspace id it is given",
   "src/lib/workspace-delete.ts": "deletes ONE workspace by id; callers check permission",
   "src/lib/platform-data.ts": "platform owner's list: names/owner/date of workspaces THEY set up, no content",
 };
-const OWNED = ["sources", "themes", "feedbackItems", "enhancements", "digests", "productAreas", "trackerConnections", "aiConfigs", "auditEvents", "workspaceAiSettings"];
+const OWNED = ["sources", "themes", "feedbackItems", "enhancements", "digests", "productAreas", "trackerConnections", "aiConfigs", "auditEvents", "workspaceAiSettings", "incomingWebhooks"];
 
 let fail = 0;
 const check = (n: string, ok: boolean, d = "") => { console.log(`${ok ? "✓" : "✗"} ${n}${d ? " — " + d : ""}`); if (!ok) fail++; };
@@ -129,6 +130,17 @@ check("the Jira audit entry never contains the token", !/after: \{[^}]*token/i.t
 check("backups don't include the Jira token", /schema\.trackerConnections\.siteUrl/.test(ex) && !/encryptedToken/.test(ex));
 const jc = strip(readFileSync("src/lib/jira.ts", "utf8"));
 check("the Jira client only talks to *.atlassian.net and refuses redirects", /\\.atlassian\\\.net\$/.test(jc) && /redirect: "error"/.test(jc));
+
+// --- Incoming webhook -------------------------------------------------------
+const wr = strip(readFileSync("src/lib/webhook-receive.ts", "utf8"));
+check("webhook: only a hash of the secret is looked up (never stored in plain)", /eq\(schema\.incomingWebhooks\.tokenHash, hashWebhookToken\(token\)\)/.test(wr));
+check("webhook: switched-off addresses are refused", /eq\(schema\.incomingWebhooks\.enabled, true\)/.test(wr));
+check("webhook: feedback goes ONLY to the address's own workspace", (wr.match(/workspaceId: hook\.workspaceId/g) ?? []).length === 2 && !/workspaceId: (body|parsed|data)/.test(wr));
+check("webhook: arrives in Needs review, never approved", /reviewStatus: "needs_review" as const/.test(wr) && !/"approved"/.test(wr));
+check("webhook: size and rate limits come before any work", wr.indexOf("MAX_BODY_BYTES") < wr.indexOf("parseWebhookBody(") && wr.indexOf("MAX_PER_MINUTE") < wr.indexOf("parseWebhookBody("));
+const wha = strip(readFileSync("src/app/(app)/integrations/webhook-actions.ts", "utf8"));
+check("webhook: only owners create, replace or switch it off", /ctx\.role !== "owner"/.test(wha) && (wha.match(/await owner\(\)/g) ?? []).length === 2);
+check("webhook: the secret isn't written to the audit log", !/after: \{[^}]*token[^H]/.test(wha));
 
 const plat = strip(readFileSync("src/lib/platform.ts", "utf8"));
 check("platform owner comes from an env variable, not anything the app can change", /process\.env\.PLATFORM_ADMIN_EMAILS/.test(plat) && !/getDb/.test(plat));

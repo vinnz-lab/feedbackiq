@@ -10,6 +10,7 @@ import {
   Kanban,
   BarChart3,
   Settings,
+  Plug,
   Sparkles,
   Plus,
   type LucideIcon,
@@ -26,6 +27,7 @@ const ICONS: Record<string, LucideIcon> = {
   Kanban,
   BarChart3,
   Settings,
+  Plug,
 };
 
 export function Sidebar({

@@ -27,7 +27,7 @@ const KIND_ICON: Record<string, string> = {
   transcript: "🎙",
   spreadsheet: "📊",
   note: "📝",
-  paste: "📋",
+  paste: "📋", webhook: "🔌"
 };
 
 const STATUS_STYLE: Record<string, { bg: string; fg: string; label: string }> = {

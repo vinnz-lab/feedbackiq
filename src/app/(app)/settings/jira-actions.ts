@@ -82,6 +82,7 @@ export async function saveJiraConnection(_prev: JiraSaveState, formData: FormDat
       after: { site: site.site, projectKey, issueType: check.issueType, nameMode },
     });
     revalidatePath("/settings");
+    revalidatePath("/integrations");
     revalidatePath("/roadmap");
     return { ok: `Connected to ${check.projectName} (${projectKey}) as ${check.who}.` };
   } catch (e) {
@@ -105,6 +106,7 @@ export async function disconnectJira(_prev: JiraSaveState, _fd: FormData): Promi
       entityId: ctx.workspace.id,
     });
     revalidatePath("/settings");
+    revalidatePath("/integrations");
     revalidatePath("/roadmap");
     return { ok: "Jira disconnected. Existing ticket links on the roadmap are kept." };
   } catch (e) {

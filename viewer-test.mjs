@@ -25,7 +25,7 @@ const go = async (page, path) => { await page.goto(base + path, { waitUntil: "ne
 const vera = await session("Vera Viewer");
 const v = vera.page;
 console.log("Vera (viewer) can see everything:");
-for (const p of ["/dashboard", "/themes", "/register", "/register?tab=review", "/roadmap", "/roadmap?view=board", "/trends", "/digest", "/settings"]) {
+for (const p of ["/dashboard", "/themes", "/register", "/register?tab=review", "/roadmap", "/roadmap?view=board", "/trends", "/digest", "/settings", "/integrations"]) {
   const r = await v.goto(base + p, { waitUntil: "networkidle" });
   check(r.status() === 200, `${p} opens`);
 }
@@ -55,7 +55,9 @@ await go(v, "/digest");
 check((await count(v, "button", /Generate/)) === 0, "no Generate digest button");
 const set = await go(v, "/settings");
 check(/Your account/.test(set) && (await count(v, "button", "Add person")) === 0 && !/Clear the register|Delete this workspace/.test(set), "Settings: own account only — no adding people, clearing or deleting");
-check((await v.getByLabel("Gemini API key").count()) === 0 && (await v.getByLabel("Jira API token").count()) === 0, "no AI key or Jira settings to change");
+await go(v, "/integrations");
+check((await v.getByLabel("Gemini API key").count()) === 0 && (await v.getByLabel("Jira API token").count()) === 0, "Integrations: no AI key or Jira settings to change");
+check((await count(v, "button", /Create webhook address|Get a new address|Switch (off|on)/)) === 0, "Integrations: can't create or change the webhook");
 
 console.log("\nGoing round the screen doesn't work either:");
 const up = await fetch(base + "/api/ingest", { method: "POST", headers: { "Content-Type": "application/json", Cookie: await vera.cookie() }, body: JSON.stringify({ paste: "VERA tried to add this " + Date.now() }) });

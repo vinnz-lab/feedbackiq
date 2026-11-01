@@ -10,6 +10,7 @@ export const NAV: NavItem[] = [
   { href: "/register", label: "Register", icon: "List" },
   { href: "/roadmap", label: "Roadmap", icon: "Kanban" },
   { href: "/trends", label: "Trends", icon: "BarChart3" },
+  { href: "/integrations", label: "Integrations", icon: "Plug" },
   { href: "/settings", label: "Settings", icon: "Settings" },
 ];
 

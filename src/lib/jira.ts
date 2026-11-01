@@ -237,6 +237,7 @@ const KIND_LABEL: Record<string, string> = {
   spreadsheet: "Spreadsheet",
   note: "Note",
   paste: "Pasted note",
+  webhook: "Sent in by another app",
 };
 
 function shorten(s: string, max: number) {

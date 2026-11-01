@@ -29,6 +29,7 @@ export const sourceKindEnum = pgEnum("source_kind", [
   "spreadsheet",
   "note",
   "paste",
+  "webhook", // sent in by another app (Zapier, Make, Typeform…)
 ]);
 
 export const sourceStatusEnum = pgEnum("source_status", [
@@ -141,6 +142,29 @@ export const workspaceAiSettings = pgTable("workspace_ai_settings", {
   updatedBy: uuid("updated_by").references(() => users.id, { onDelete: "set null" }),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
+
+/**
+ * A workspace's incoming webhook: a private address other apps can send
+ * feedback to. Only a SHA-256 hash of the secret is stored — the address is
+ * shown once when created, like a password, and can be regenerated.
+ */
+export const incomingWebhooks = pgTable(
+  "incoming_webhooks",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull(),
+    tokenHint: text("token_hint").notNull(),
+    enabled: boolean("enabled").notNull().default(true),
+    receivedCount: integer("received_count").notNull().default(0),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+    windowStart: timestamp("window_start", { withTimezone: true }),
+    windowCount: integer("window_count").notNull().default(0),
+    createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex("webhooks_ws_uq").on(t.workspaceId), uniqueIndex("webhooks_token_uq").on(t.tokenHash)],
+);
 
 /* ============================ Taxonomy ============================ */
 export const productAreas = pgTable("product_areas", {

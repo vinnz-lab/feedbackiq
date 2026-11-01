@@ -72,6 +72,7 @@ export async function saveAiKey(_prev: AiKeyState, formData: FormData): Promise<
       after: { last4: values.keyLast4 },
     });
     revalidatePath("/settings");
+    revalidatePath("/integrations");
     return { ok: `Saved. AI in this workspace now uses your key (…${values.keyLast4}).` };
   } catch (e) {
     return { error: (e as Error).message };
@@ -100,6 +101,7 @@ export async function removeAiKey(_prev: AiKeyState, _formData: FormData): Promi
       entityId: ctx.workspace.id,
     });
     revalidatePath("/settings");
+    revalidatePath("/integrations");
     return { ok: "Your key was removed." };
   } catch (e) {
     return { error: (e as Error).message };
