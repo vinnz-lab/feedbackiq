@@ -4,6 +4,7 @@ import { useActionState, useEffect, useState } from "react";
 import Link from "next/link";
 import { addSampleData, type SampleState } from "@/app/(app)/dashboard/sample-actions";
 import type { GuideState, StepKey } from "@/lib/getting-started";
+import { GuideLink } from "@/components/guide-link";
 
 const STEPS: { key: StepKey; title: string; text: string; href: string; cta: string }[] = [
   { key: "add", title: "Add some feedback", text: "Paste notes, upload a spreadsheet, email, transcript or recording.", href: "/ingest", cta: "Add feedback" },
@@ -139,6 +140,9 @@ export function GettingStarted({ state, canEdit, workspaceId }: { state: GuideSt
           ))}
         </ul>
       )}
+      <div className="mt-4 border-t border-border pt-3">
+        <GuideLink />
+      </div>
     </section>
   );
 }

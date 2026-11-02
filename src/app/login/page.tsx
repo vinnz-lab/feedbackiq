@@ -1,4 +1,5 @@
 import { PrivacyLink } from "@/components/privacy-link";
+import { GuideLink } from "@/components/guide-link";
 import { FullLogo } from "@/components/brand";
 import { listUsers, ROLE_LABEL, initials } from "@/lib/auth";
 import { authMode } from "@/lib/supabase/env";
@@ -22,6 +23,9 @@ export default async function LoginPage() {
         {mode === "unconfigured" && <NotConfigured />}
 
         <p className="mt-4 text-center text-[11.5px] text-muted">Every customer voice. One clear roadmap.</p>
+        <div className="mt-3 flex justify-center">
+          <GuideLink />
+        </div>
         <PrivacyLink className="mt-2" />
       </div>
     </div>
