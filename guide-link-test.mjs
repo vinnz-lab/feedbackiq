@@ -24,6 +24,14 @@ await page.evaluate(() => { for (const k of Object.keys(localStorage)) if (k.sta
 await page.goto(base + "/dashboard", { waitUntil: "networkidle" });
 const inApp = page.getByRole("link", { name: /Download the getting started guide/ });
 check((await inApp.count()) >= 1, "the in-app Getting Started guide links to the PDF");
+const pdf = await fetch(base + "/insight-hub-guide.pdf");
+check(pdf.status === 200 && (await pdf.arrayBuffer()).byteLength > 1000000, "the served route returns the full PDF (not a 404)");
+// Hidden guide: the PDF link still shows next to the collapsed link.
+await page.evaluate(() => { for (const k of Object.keys(localStorage)) if (k.startsWith("ih-guide-hidden")) localStorage.setItem(k, "1"); });
+await page.goto(base + "/dashboard", { waitUntil: "networkidle" });
+check((await page.getByRole("link", { name: /Download the getting started guide/ }).count()) >= 1, "when the guide is hidden, the PDF link still shows");
+await page.goto(base + "/settings", { waitUntil: "networkidle" });
+check((await page.getByRole("link", { name: /Download the getting started guide/ }).count()) === 1, "Settings always has the PDF link");
 await b.close();
 console.log(fail ? `${fail} FAILED` : "all passed");
 process.exit(fail ? 1 : 0);

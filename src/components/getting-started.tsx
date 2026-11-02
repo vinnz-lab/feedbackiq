@@ -49,9 +49,12 @@ export function GettingStarted({ state, canEdit, workspaceId }: { state: GuideSt
   if (hidden === null || allDone) return null;
   if (hidden) {
     return (
-      <button type="button" onClick={() => hide(false)} className="mb-4 text-[12.5px] font-semibold text-indigo hover:underline">
-        ✦ Getting started{canEdit ? ` (${doneCount} of ${STEPS.length} done)` : ""}
-      </button>
+      <div className="mb-4 flex flex-wrap items-center gap-4">
+        <button type="button" onClick={() => hide(false)} className="text-[12.5px] font-semibold text-indigo hover:underline">
+          ✦ Getting started{canEdit ? ` (${doneCount} of ${STEPS.length} done)` : ""}
+        </button>
+        <GuideLink />
+      </div>
     );
   }
   const next = STEPS.find((s) => !state.done[s.key]);
