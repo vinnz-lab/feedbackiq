@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { GuideLink } from "@/components/guide-link";
 import { listMembers, ROLE_LABEL, initials } from "@/lib/auth";
 import { requireWorkspace } from "@/lib/workspace";
 import { authMode } from "@/lib/supabase/env";
@@ -194,6 +195,9 @@ export default async function SettingsPage() {
       )}
       <p className="mt-8 text-[12px] text-muted">
         How Insight Hub handles your data: <Link href="/privacy" className="font-semibold text-indigo hover:underline">Privacy</Link>
+      </p>
+      <p className="mt-2">
+        <GuideLink />
       </p>
     </div>
   );
