@@ -13,17 +13,20 @@ const hub = `<svg viewBox="0 0 64 64" width="38" height="38">${[...Array(6)].map
 const today = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
 
 /** A screenshot; with h (mm) it's cropped from the top to that height so pages never overflow. */
-const shot = (n, caption, h = 0) => `<figure>${h ? `<div class="crop" style="height:${h}mm"><img src="${img(n)}"/></div>` : `<img src="${img(n)}"/>`}${caption ? `<figcaption>${caption}</figcaption>` : ""}</figure>`;
+const VARIANT = process.env.VARIANT || "a4";
+const SC = VARIANT === "linkedin" ? 0.86 : 1;
+const PAGE_H = VARIANT === "linkedin" ? "262.5mm" : "297mm";
+const shot = (n, caption, h = 0) => `<figure>${h ? `<div class="crop" style="height:${Math.round(h * SC)}mm"><img src="${img(n)}"/></div>` : `<img src="${img(n)}"/>`}${caption ? `<figcaption>${caption}</figcaption>` : ""}</figure>`;
 const step = (num, title, body) => `<div class="step"><div class="num">${num}</div><div><h3>${title}</h3>${body}</div></div>`;
 const footer = (n) => `<div class="foot"><span>${icon.replace("<svg ", '<svg width="14" height="14" ')} Insight Hub · Getting started</span><span>${n}</span></div>`;
 
 const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-@page { size: A4; margin: 0; }
+@page { size: ${VARIANT === "linkedin" ? "210mm 262.5mm" : "A4"}; margin: 0; }
 * { box-sizing: border-box; }
 body { margin: 0; font-family: Inter, system-ui, sans-serif; color: #111827; font-size: 10.5pt; line-height: 1.5; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-.page { width: 210mm; height: 297mm; padding: 18mm 18mm 16mm; position: relative; page-break-after: always; overflow: hidden; }
+.page { width: 210mm; height: ${PAGE_H}; padding: 18mm 18mm 16mm; position: relative; page-break-after: always; overflow: hidden; }
 .page:last-child { page-break-after: auto; }
 h1 { font-size: 30pt; line-height: 1.1; letter-spacing: -0.02em; margin: 0; }
 h2 { font-size: 17pt; letter-spacing: -0.01em; margin: 0 0 3mm; }
@@ -51,6 +54,7 @@ td.y { color: #059669; font-weight: 700; } td.n { color: #D1D5DB; }
 .flow div b { display: block; font-size: 14pt; margin-bottom: 1mm; }
 .cover { background: linear-gradient(160deg, #EEF2FF 0%, #fff 55%); }
 .qa h3 { margin-top: 4mm; }
+${VARIANT === "linkedin" ? ".qa { font-size: 8.6pt; line-height: 1.38; } .qa h3 { margin-top: 2.6mm; font-size: 10pt; } table { font-size: 8.6pt; } th,td { padding: 1.4mm 2mm; }" : ""}
 ul { margin: 1mm 0 2.5mm 5mm; padding: 0; } li { margin-bottom: 1mm; }
 .crop { overflow: hidden; border: 1px solid #E5E7EB; border-radius: 3mm; box-shadow: 0 2px 10px rgba(17,24,39,.08); } .crop img { border: 0; border-radius: 0; box-shadow: none; }
 </style></head><body>
@@ -197,7 +201,7 @@ ul { margin: 1mm 0 2.5mm 5mm; padding: 0; } li { margin-bottom: 1mm; }
   <div class="qa grid2" style="gap:0 8mm">
     <div>
       <h3>Do I need my own AI subscription?</h3>
-      <p>No. Insight Hub can run on the platform's AI. If you'd rather use your own, the workspace owner can add an API key from <b>Google Gemini</b>, <b>OpenAI</b> or <b>Anthropic (Claude)</b> in Integrations → AI. Note that a ChatGPT Plus or Claude Pro subscription doesn't include API use — API keys are billed separately by the provider, usually pennies for a small team.</p>
+      <p>No. Insight Hub can run on the platform's AI. If you'd rather use your own, the workspace owner can add an API key from <b>Google Gemini</b>, <b>OpenAI</b> or <b>Anthropic (Claude)</b> in Integrations → AI.</p>
       <h3>Is our data private?</h3>
       <p>Each workspace is completely separate — people only see the workspaces they've been added to. Data is stored in the EU (Stockholm), keys are encrypted, and there's no tracking. A plain-English privacy summary is available on request.</p>
     </div>
@@ -221,6 +225,6 @@ writeFileSync("/tmp/guide/guide.html", html);
 const b = await chromium.launch();
 const p = await b.newPage();
 await p.goto("file:///tmp/guide/guide.html", { waitUntil: "networkidle" });
-await p.pdf({ path: outPdf, format: "A4", printBackground: true, preferCSSPageSize: true });
+await p.pdf(VARIANT === "linkedin" ? { path: outPdf, width: "210mm", height: "262.5mm", printBackground: true, preferCSSPageSize: true } : { path: outPdf, format: "A4", printBackground: true, preferCSSPageSize: true });
 await b.close();
 console.log("wrote", outPdf);
