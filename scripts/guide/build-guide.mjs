@@ -73,6 +73,7 @@ ul { margin: 1mm 0 2.5mm 5mm; padding: 0; } li { margin-bottom: 1mm; }
       <div>5. Finding anything with search</div><div></div>
     </div>
   </div>
+  <p style="position:absolute;bottom:30mm;font-size:11pt;color:#374151">Built by <b>Veneet Dhawan</b></p>
   <p class="muted" style="position:absolute;bottom:18mm;font-size:9pt">Screenshots show a demo workspace with sample data for a made-up project-management app. · ${today}</p>
 </section>
 
@@ -168,7 +169,7 @@ ul { margin: 1mm 0 2.5mm 5mm; padding: 0; } li { margin-bottom: 1mm; }
   <div class="grid2" style="align-items:start">
     <div>
       <p><b>Incoming webhook.</b> In <b>Integrations</b>, create the workspace's private webhook address and use it in Zapier or Make. New answers from Typeform, Google Forms, Intercom, Zendesk, HubSpot or a spreadsheet then flow straight into Needs review, labelled with the app they came from.</p>
-      <p><b>Feedback button.</b> Anyone using Insight Hub can click <b>💬 Feedback</b> in the top bar to send an idea, problem, question or praise straight to the builder.</p>
+      <p><b>Feedback button.</b> Anyone using Insight Hub can click <b>💬 Feedback</b> in the top bar to send an idea, problem, question or praise straight to Veneet, who built it. A real person reads every message.</p>
       <div class="tip">The webhook address works like a password: only the workspace owner can see it, and it can be replaced or switched off at any time.</div>
     </div>
     ${shot("13-feedback", "")}
@@ -181,7 +182,7 @@ ul { margin: 1mm 0 2.5mm 5mm; padding: 0; } li { margin-bottom: 1mm; }
   <div class="kicker">8 · Who can do what</div>
   <h2>Roles</h2>
   <table>
-    <tr><th></th><th>Owner</th><th>Contributor · Executive · Engineer</th><th>Viewer</th></tr>
+    <tr><th></th><th>Owner</th><th>Contributor<br/><span style="font-weight:400;text-transform:none;letter-spacing:0">(incl. executives and engineers)</span></th><th>Viewer</th></tr>
     <tr><td>See the dashboard, themes, register, roadmap, trends and digest</td><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td></tr>
     <tr><td>Search, notifications, send feedback</td><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td></tr>
     <tr><td>Add feedback, run AI analysis, approve and correct</td><td class="y">✓</td><td class="y">✓</td><td class="n">—</td></tr>
@@ -206,7 +207,7 @@ ul { margin: 1mm 0 2.5mm 5mm; padding: 0; } li { margin-bottom: 1mm; }
       <h3>How do I get rid of the sample data?</h3>
       <p>Click <b>Remove sample data</b> in the yellow banner. Everything it created goes; anything you added yourself stays.</p>
       <h3>Something's not working, or I have an idea</h3>
-      <p>Click <b>💬 Feedback</b> in the top bar — it goes straight to the builder.</p>
+      <p>Click <b>💬 Feedback</b> in the top bar — it goes straight to Veneet, and a real person reads it.</p>
       <h3>How do I get access?</h3>
       <p>Insight Hub is invite-only while it's being tested. Message or comment on the LinkedIn post, and you'll be set up with a workspace to try it.</p>
     </div>
