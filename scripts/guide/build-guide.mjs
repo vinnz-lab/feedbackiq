@@ -10,7 +10,6 @@ const outPdf = process.env.OUT_PDF || "public/insight-hub-guide.pdf";
 const icon = readFileSync("src/app/icon.svg", "utf8");
 const img = (n) => `data:image/jpeg;base64,${readFileSync(`${shots}/${n}.jpg`).toString("base64")}`;
 const hub = `<svg viewBox="0 0 64 64" width="38" height="38">${[...Array(6)].map((_, i) => { const a = ((-90 + 60 * i) * Math.PI) / 180; return `<line x1="32" y1="32" x2="${32 + 22 * Math.cos(a)}" y2="${32 + 22 * Math.sin(a)}" stroke="#4F46E5" stroke-width="3"/><circle cx="${32 + 24 * Math.cos(a)}" cy="${32 + 24 * Math.sin(a)}" r="5.5" fill="#4F46E5"/>`; }).join("")}<circle cx="32" cy="32" r="14" fill="#4F46E5"/><path d="M22.5 32c2.6-4.4 5.8-6.4 9.5-6.4s6.9 2 9.5 6.4c-2.6 4.4-5.8 6.4-9.5 6.4s-6.9-2-9.5-6.4z" fill="#fff"/><circle cx="32" cy="32" r="3.6" fill="#8B5CF6"/></svg>`;
-const SITE = process.env.SITE || "insight-hub-vinnzlab.vercel.app";
 const today = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
 
 /** A screenshot; with h (mm) it's cropped from the top to that height so pages never overflow. */
@@ -74,7 +73,6 @@ ul { margin: 1mm 0 2.5mm 5mm; padding: 0; } li { margin-bottom: 1mm; }
       <div>5. Finding anything with search</div><div></div>
     </div>
   </div>
-  <p style="position:absolute;bottom:26mm;font-size:11pt"><b>Try it:</b> <span style="color:#4F46E5;font-weight:700">${SITE}</span></p>
   <p class="muted" style="position:absolute;bottom:18mm;font-size:9pt">Screenshots show a demo workspace with sample data for a made-up project-management app. · ${today}</p>
 </section>
 
@@ -170,7 +168,7 @@ ul { margin: 1mm 0 2.5mm 5mm; padding: 0; } li { margin-bottom: 1mm; }
   <div class="grid2" style="align-items:start">
     <div>
       <p><b>Incoming webhook.</b> In <b>Integrations</b>, create the workspace's private webhook address and use it in Zapier or Make. New answers from Typeform, Google Forms, Intercom, Zendesk, HubSpot or a spreadsheet then flow straight into Needs review, labelled with the app they came from.</p>
-      <p><b>Feedback button.</b> Anyone using Insight Hub can click <b>💬 Feedback</b> in the top bar to send an idea, problem, question or praise to the Insight Hub team.</p>
+      <p><b>Feedback button.</b> Anyone using Insight Hub can click <b>💬 Feedback</b> in the top bar to send an idea, problem, question or praise straight to the builder.</p>
       <div class="tip">The webhook address works like a password: only the workspace owner can see it, and it can be replaced or switched off at any time.</div>
     </div>
     ${shot("13-feedback", "")}
@@ -200,7 +198,7 @@ ul { margin: 1mm 0 2.5mm 5mm; padding: 0; } li { margin-bottom: 1mm; }
       <h3>Do I need my own AI subscription?</h3>
       <p>No. Insight Hub can run on the platform's AI. If you'd rather use your own, the workspace owner can add an API key from <b>Google Gemini</b>, <b>OpenAI</b> or <b>Anthropic (Claude)</b> in Integrations → AI. Note that a ChatGPT Plus or Claude Pro subscription doesn't include API use — API keys are billed separately by the provider, usually pennies for a small team.</p>
       <h3>Is our data private?</h3>
-      <p>Each workspace is completely separate — people only see the workspaces they've been added to. Data is stored in the EU (Stockholm), keys are encrypted, and there's no tracking. The full plain-English summary is at <b>${SITE}/privacy</b>.</p>
+      <p>Each workspace is completely separate — people only see the workspaces they've been added to. Data is stored in the EU (Stockholm), keys are encrypted, and there's no tracking. A plain-English privacy summary is available on request.</p>
     </div>
     <div>
       <h3>Does the AI change anything on its own?</h3>
@@ -208,9 +206,9 @@ ul { margin: 1mm 0 2.5mm 5mm; padding: 0; } li { margin-bottom: 1mm; }
       <h3>How do I get rid of the sample data?</h3>
       <p>Click <b>Remove sample data</b> in the yellow banner. Everything it created goes; anything you added yourself stays.</p>
       <h3>Something's not working, or I have an idea</h3>
-      <p>Click <b>💬 Feedback</b> in the top bar — it comes straight to us.</p>
+      <p>Click <b>💬 Feedback</b> in the top bar — it goes straight to the builder.</p>
       <h3>How do I get access?</h3>
-      <p>Insight Hub is invite-only while it's being tested. Ask the person who shared this guide, then sign in at <b>${SITE}</b>.</p>
+      <p>Insight Hub is invite-only while it's being tested. Message or comment on the LinkedIn post, and you'll be set up with a workspace to try it.</p>
     </div>
   </div>
   ${footer(10)}
