@@ -77,7 +77,7 @@ ul { margin: 1mm 0 2.5mm 5mm; padding: 0; } li { margin-bottom: 1mm; }
       <div>5. Finding anything with search</div><div></div>
     </div>
   </div>
-  <p style="position:absolute;bottom:30mm;font-size:11pt;color:#374151">Built by <b>Veneet Dhawan</b></p>
+  <p style="position:absolute;bottom:30mm;font-size:11pt;color:#374151">Built by <b>Veneet Dhawan</b> · linkedin.com/in/veneet-dhawan</p>
   <p class="muted" style="position:absolute;bottom:18mm;font-size:9pt">Screenshots show a demo workspace with sample data for a made-up project-management app. · ${today}</p>
 </section>
 
