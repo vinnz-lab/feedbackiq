@@ -21,8 +21,8 @@ test("a viewer can see the review queue but cannot approve or discard", async ({
 
   await page.goto("/register?tab=review");
 
-  // The page explains the read-only state.
-  await expect(page.getByText("View only")).toBeVisible();
+  // The page explains the read-only state. Match the explanation sentence, which appears once.
+  await expect(page.getByText("you can see the queue but not approve", { exact: false })).toBeVisible();
 
   // None of the editing buttons should be offered.
   await expect(page.getByRole("button", { name: "✓ Approve" })).toHaveCount(0);
