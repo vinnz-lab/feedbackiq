@@ -17,6 +17,12 @@ test("forgot-password page offers a reset form", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Send reset link" })).toBeVisible();
 });
 
+test("forgot-password page links back to sign in", async ({ page }) => {
+  await page.goto("/forgot-password");
+  await page.getByRole("link", { name: "Back to sign in" }).click();
+  await expect(page).toHaveURL(/\/login/);
+});
+
 test("unknown address returns a 404 page", async ({ page }) => {
   const response = await page.goto("/this-page-does-not-exist");
   expect(response!.status()).toBe(404);
