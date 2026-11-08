@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
-// Signs in with a development profile. Only works when the app runs locally with
-// ALLOW_DEV_LOGIN=true. On GitHub (no picker) the test is skipped, not failed.
+// These run only locally with ALLOW_DEV_LOGIN=true. On GitHub (no picker) they are skipped, not failed.
+
 test("choosing a dev profile signs in and leaves the login page", async ({ page }) => {
   await page.goto("/login");
   await page.waitForLoadState("networkidle");
@@ -14,4 +14,22 @@ test("choosing a dev profile signs in and leaves the login page", async ({ page 
   await page.locator("form button[type=submit]").first().click();
 
   await expect(page).not.toHaveURL(/\/login/);
+});
+
+test("signing out returns you to the login page", async ({ page }) => {
+  await page.goto("/login");
+  await page.waitForLoadState("networkidle");
+
+  const picker = page.getByRole("heading", { name: "Choose a profile" });
+  const showsPicker = await picker.isVisible().catch(() => false);
+  test.skip(!showsPicker, "Dev profile picker is off (ALLOW_DEV_LOGIN not set)");
+
+  await page.locator("form button[type=submit]").first().click();
+  await expect(page).not.toHaveURL(/\/login/);
+
+  // The avatar button opens the account menu in the top bar; it has no text label.
+  await page.locator("header div.relative > button").click();
+  await page.getByRole("button", { name: "Sign out" }).click();
+
+  await expect(page).toHaveURL(/\/login/);
 });
