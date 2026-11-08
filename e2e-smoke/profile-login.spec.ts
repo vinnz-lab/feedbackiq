@@ -27,8 +27,8 @@ test("signing out returns you to the login page", async ({ page }) => {
   await page.locator("form button[type=submit]").first().click();
   await expect(page).not.toHaveURL(/\/login/);
 
-  // The avatar button opens the account menu in the top bar; it has no text label.
-  await page.locator("header div.relative > button").click();
+  // The avatar is the round button in the top bar; it opens the account menu.
+  await page.locator("header button.rounded-full").click();
   await page.getByRole("button", { name: "Sign out" }).click();
 
   await expect(page).toHaveURL(/\/login/);
