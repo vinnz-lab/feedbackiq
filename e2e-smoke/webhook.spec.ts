@@ -12,3 +12,12 @@ test("webhook refuses a request to an unknown address", async ({ request }) => {
   const body = await response.json();
   expect(body.ok).toBe(false);
 });
+
+// A plain GET should explain how to use the webhook, not accept data.
+test("webhook help page explains that POST is required", async ({ request }) => {
+  const response = await request.get("/api/hooks/feedback/x");
+  expect(response.status()).toBe(405);
+  expect(response.headers()["allow"]).toBe("POST");
+  const body = await response.json();
+  expect(body.error).toContain("POST");
+});
