@@ -1,0 +1,61 @@
+# Runs the code-level checks on every push and pull request.
+# Read-only: it never deploys, never touches the live database, and uses no secrets.
+name: tests
+
+on:
+  pull_request:
+  push:
+    branches: [main, ci-tests]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Build
+        run: npm run build
+
+      - name: Unit tests (fresh test database each time)
+        run: bash scripts/ci/unit-tests.sh
+
+
+      - name: Install Chromium for browser tests
+        run: npx playwright install --with-deps chromium
+
+      - name: Start app
+        run: npm run start -- -p 3000 > app.log 2>&1 &
+
+      - name: Wait for app to respond
+        run: |
+          timeout 120 bash -c 'until curl -s -o /dev/null http://localhost:3000; do sleep 2; done'
+
+      - name: Browser smoke test
+        run: npx playwright test
+
+      - name: Upload app log and test report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-test-output
+          path: |
+            app.log
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
