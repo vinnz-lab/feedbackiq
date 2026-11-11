@@ -62,6 +62,9 @@ async function regenerateSummariesInner(): Promise<{
             .set({ summary })
             .where(and(eq(schema.themes.workspaceId, ws.id), eq(schema.themes.id, t.id)));
           updated++;
+        } else {
+          failed++;
+          if (!firstError) firstError = "The AI returned an empty summary.";
         }
         consecutiveThrottles = 0;
         // Pacing + retry are handled centrally in lib/ai/client.ts.
